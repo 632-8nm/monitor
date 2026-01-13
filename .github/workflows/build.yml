@@ -1,32 +1,33 @@
 name: Simple Deploy
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+    push:
+        branches: [main]
+    workflow_dispatch:
 
 jobs:
-  deploy:
-    runs-on: self-hosted
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    deploy:
+        runs-on: self-hosted
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
 
-      - name: Build and Deploy
-        run: |
-          # 1. 先停止旧服务（防止编译时文件被占用，或端口冲突）
-          sudo systemctl stop monitor || true
-          
-          # 2. 编译
-          go build -o monitor_server .
-          chmod +x monitor_server
-          
-          # 3. 再次强行清理端口（双重保险）
-          sudo fuser -k 8080/tcp || true
-          
-          # 4. 重新启动服务
-          sudo systemctl start monitor
-          
-          # 5. 验证是否成功
-          sleep 2
-          sudo systemctl is-active monitor
+            - name: Build and Deploy
+              run: |
+                  # 1. 先停止旧服务（防止编译时文件被占用，或端口冲突）
+                  sudo systemctl stop monitor || true
+
+                  # 2. 编译
+                  go build -o monitor_server .
+                  chmod +x monitor_server
+                  chmod +x setup_monitor.sh
+
+                  # 3. 再次强行清理端口（双重保险）
+                  sudo fuser -k 8080/tcp || true
+
+                  # 4. 重新启动服务
+                  sudo systemctl start monitor
+
+                  # 5. 验证是否成功
+                  sleep 2
+                  sudo systemctl is-active monitor
