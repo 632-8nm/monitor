@@ -27,9 +27,14 @@ func (s *Server) StatsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Start(port string) {
-	// 静态文件服务
-	fs := http.FileServer(http.Dir("./"))
-	http.Handle("/", fs)
+	// 这行代码的意思是：当收到以 /static/ 开头的请求时，去本机的 static 文件夹找文件
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	// 首页路由：当直接访问根目录时，返回 index.html
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
+	})
 
 	// API 路由
 	http.HandleFunc("/api/stats", s.StatsHandler)

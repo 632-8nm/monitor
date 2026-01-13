@@ -1,0 +1,121 @@
+﻿:root {
+	--bg-color: #0f172a;
+	--card-bg: #1e293b;
+	--accent-color: #38bdf8;
+	--text-main: #f8fafc;
+	--text-dim: #94a3b8;
+	--danger: #ef4444;
+	--success: #10b981;
+}
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+body {
+	background-color: var(--bg-color);
+	font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+	color: var(--text-main);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-height: 100vh;
+	padding: 2rem;
+}
+
+header {
+	margin-bottom: 2rem;
+	text-align: center;
+}
+
+header h1 {
+	font-size: 1.6rem;
+	letter-spacing: 4px;
+	color: var(--accent-color);
+}
+
+header p {
+	color: var(--text-dim);
+	font-size: 0.8rem;
+	margin-top: 0.5rem;
+}
+
+.container {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 1.5rem;
+	width: 100%;
+	max-width: 1000px;
+}
+
+.card {
+	background: var(--card-bg);
+	padding: 1.5rem;
+	border-radius: 1rem;
+	border: 1px solid rgba(255, 255, 255, 0.05);
+	transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card:hover {
+	transform: translateY(-8px);
+	border-color: var(--accent-color);
+}
+
+.card-title {
+	color: var(--text-dim);
+	font-size: 0.85rem;
+	font-weight: 600;
+	margin-bottom: 1rem;
+}
+
+.card-value {
+	font-size: 2.5rem;
+	font-weight: 700;
+	margin-bottom: 0.5rem;
+}
+
+.card-unit {
+	font-size: 1rem;
+	color: var(--text-dim);
+	margin-left: 0.3rem;
+}
+
+.card-subtitle {
+	font-size: 0.8rem;
+	color: var(--text-dim);
+	margin-top: 8px;
+}
+
+.progress-container {
+	height: 10px;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 5px;
+	overflow: hidden;
+	margin-top: 1.2rem;
+}
+
+.progress-bar {
+	height: 100%;
+	width: 0%;
+	background: linear-gradient(90deg, var(--accent-color), #818cf8);
+	transition: width 0.6s ease-out;
+}
+
+.status-footer {
+	margin-top: auto;
+	padding-top: 2rem;
+	font-size: 0.75rem;
+	color: var(--text-dim);
+}
+
+.status-dot {
+	height: 8px;
+	width: 8px;
+	background-color: var(--success);
+	border-radius: 50%;
+	display: inline-block;
+	margin-right: 6px;
+	box-shadow: 0 0 8px var(--success);
+}
