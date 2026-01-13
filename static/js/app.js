@@ -30,7 +30,7 @@ const UI = {
 // 自动化寻址配置
 // ==========================================
 // 请将下方的链接替换为你 Gist 的 Raw 按钮点击后的真实链接
-const GIST_RAW_URL = "https://gist.githubusercontent.com/632-8nm/3308392c0e7486496d926b7a2b49799c/raw/orangepi_url.json";
+const GIST_RAW_URL = "https://gist.githubusercontent.com/632-8nm/39872bc42a8a45a854c982f8016185bd/raw/orangepi_url.json";
 
 let cachedApiBase = null;
 
