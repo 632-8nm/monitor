@@ -12,23 +12,21 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build and Run
+      - name: Build and Deploy
         run: |
-          # 1. 编译
+          # 1. 先停止旧服务（防止编译时文件被占用，或端口冲突）
+          sudo systemctl stop op-monitor || true
+          
+          # 2. 编译
           go build -o orangepi-monitor .
           chmod +x orangepi-monitor
           
-          # 2. 清理旧进程
-          # 使用 sudo fuser 需要权限，如果 Runner 报错，请看下方说明
+          # 3. 再次强行清理端口（双重保险）
           sudo fuser -k 8080/tcp || true
           
-          # 3. 启动
-          # 明确使用 ./ 指定当前路径
-          nohup ./orangepi-monitor > log.txt 2>&1 &
+          # 4. 重新启动服务
+          sudo systemctl start op-monitor
           
-          # 4. 验证
+          # 5. 验证是否成功
           sleep 2
-          echo "--- 启动日志输出 ---"
-          cat log.txt
-          echo "------------------"
-          ps aux | grep orangepi-monitor | grep -v grep
+          sudo systemctl is-active op-monitor
