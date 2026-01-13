@@ -1,94 +1,72 @@
-﻿/**
- * UI 更新逻辑封装
- */
-const UI = {
-	updateCPU(usage) {
-		document.getElementById('cpu-usage').innerText = usage.toFixed(1);
-		document.getElementById('cpu-bar').style.width = usage + '%';
+﻿const UI = {
+	// 格式化运行时间
+	formatUptime(seconds) {
+		const d = Math.floor(seconds / (3600 * 24));
+		const h = Math.floor((seconds % (3600 * 24)) / 3600);
+		const m = Math.floor((seconds % 3600) / 60);
+		return `${d}天 ${h}时 ${m}分`;
 	},
 
-	updateTemp(tempStr) {
+	updateAll(data) {
+		// CPU
+		document.getElementById('cpu-usage').innerText = data.cpu_usage.toFixed(1);
+		document.getElementById('cpu-bar').style.width = data.cpu_usage + '%';
+		document.getElementById('cpu-freq').innerText = Math.round(data.cpu_freq);
 		const tempEl = document.getElementById('cpu-temp');
-		tempEl.innerText = tempStr;
-		const tempVal = parseFloat(tempStr);
-		tempEl.style.color = tempVal > 60 ? 'var(--danger)' : 'var(--text-main)';
-	},
+		tempEl.innerText = data.cpu_temp;
+		tempEl.style.color = parseFloat(data.cpu_temp) > 60 ? '#ef4444' : '#f8fafc';
 
-	updateMemory(usage, summary) {
-		document.getElementById('mem-usage').innerText = usage.toFixed(1);
-		document.getElementById('mem-bar').style.width = usage + '%';
-		document.getElementById('mem-summary').innerText = summary;
-	},
+		// Memory
+		document.getElementById('mem-usage').innerText = data.mem_usage.toFixed(1);
+		document.getElementById('mem-bar').style.width = data.mem_usage + '%';
+		document.getElementById('mem-summary').innerText = data.mem_summary;
 
-	updateTime() {
+		// System
+		document.getElementById('sys-os').innerText = data.os_info;
+		document.getElementById('sys-uptime').innerText = this.formatUptime(data.uptime);
+
+		// Network
+		document.getElementById('net-down').innerText = data.net_down.toFixed(1);
+		document.getElementById('net-up').innerText = data.net_up.toFixed(1);
+
 		document.getElementById('local-time').innerText =
 			`系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
 	}
 };
 
-// ==========================================
-// 自动化寻址配置
-// ==========================================
-// 请将下方的链接替换为你 Gist 的 Raw 按钮点击后的真实链接
 const GIST_RAW_URL = "https://gist.githubusercontent.com/632-8nm/39872bc42a8a45a854c982f8016185bd/raw/orangepi_url.json";
-
 let cachedApiBase = null;
+let failCount = 0;
 
-/**
- * 第一步：从 Gist 获取最新的隧道域名
- */
 async function getLiveApiBase() {
 	try {
-		// 加上时间戳缓存破坏符，确保拿到的不是浏览器旧缓存
 		const response = await fetch(`${GIST_RAW_URL}?t=${Date.now()}`, { cache: "no-store" });
-		if (!response.ok) throw new Error('无法读取 Gist 配置');
 		const config = await response.json();
-		return config.url; // 返回如 https://xxx.trycloudflare.com
-	} catch (error) {
-		console.error('寻址失败:', error);
-		return null;
-	}
+		return config.url;
+	} catch (e) { return null; }
 }
-
-/**
- * 第二步：抓取监控数据
- */
-let failCount = 0; // 记录失败次数
 
 async function fetchStats() {
 	try {
-		if (!cachedApiBase) {
-			cachedApiBase = await getLiveApiBase();
-		}
-
+		if (!cachedApiBase) cachedApiBase = await getLiveApiBase();
 		if (!cachedApiBase) return;
 
 		const response = await fetch(`${cachedApiBase}/api/stats`);
-
-		if (!response.ok) throw new Error('后端连接失效');
+		if (!response.ok) throw new Error();
 
 		const data = await response.json();
-		UI.updateAll(data); // 假设你封装了 UI.updateAll
-		failCount = 0; // 请求成功，清零计次
-
+		UI.updateAll(data);
+		failCount = 0;
 	} catch (error) {
 		failCount++;
-		console.error(`获取数据失败 (${failCount}):`, error);
-
-		// 如果连续失败 3 次，认为域名已变，强制下次重新寻址
 		if (failCount >= 3) {
 			cachedApiBase = null;
-			document.getElementById('local-time').innerText = "检测到后端变动，正在重新寻址...";
-		} else {
-			document.getElementById('local-time').innerText = "连接中断，正在尝试重连...";
+			document.getElementById('local-time').innerText = "正在重新寻址后端...";
 		}
 	}
 }
 
-// 初始化
 document.addEventListener('DOMContentLoaded', () => {
-	// 立即执行一次
 	fetchStats();
-	// 每 1000 毫秒刷新一次
 	setInterval(fetchStats, 1000);
 });
