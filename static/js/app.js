@@ -29,7 +29,9 @@ const UI = {
 
 async function fetchStats() {
 	try {
-		const response = await fetch('/api/stats');
+		// const response = await fetch('/api/stats');
+		// const response = await fetch('http://192.168.124.21:8080/api/stats');
+		const response = await fetch('https://bat-glossary-garmin-studying.trycloudflare.com/api/stats');
 		if (!response.ok) throw new Error('网络异常');
 
 		const data = await response.json();
