@@ -53,37 +53,35 @@ async function getLiveApiBase() {
 /**
  * 第二步：抓取监控数据
  */
+let failCount = 0; // 记录失败次数
+
 async function fetchStats() {
 	try {
-		// 1. 如果还没有域名，先获取域名
 		if (!cachedApiBase) {
 			cachedApiBase = await getLiveApiBase();
 		}
 
-		if (!cachedApiBase) {
-			document.getElementById('local-time').innerText = "正在寻找后端入口...";
-			return;
-		}
+		if (!cachedApiBase) return;
 
-		// 2. 使用拿到的域名请求数据
 		const response = await fetch(`${cachedApiBase}/api/stats`);
-		if (!response.ok) {
-			// 如果请求失败，可能是域名失效了，清除缓存下次尝试重新寻址
-			cachedApiBase = null;
-			throw new Error('后端连接失效');
-		}
+
+		if (!response.ok) throw new Error('后端连接失效');
 
 		const data = await response.json();
-
-		// 3. 更新 UI
-		UI.updateCPU(data.cpu_usage);
-		UI.updateTemp(data.cpu_temp);
-		UI.updateMemory(data.mem_usage, data.mem_summary);
-		UI.updateTime();
+		UI.updateAll(data); // 假设你封装了 UI.updateAll
+		failCount = 0; // 请求成功，清零计次
 
 	} catch (error) {
-		console.error('获取数据失败:', error);
-		document.getElementById('local-time').innerText = "连接中断，正在尝试重连...";
+		failCount++;
+		console.error(`获取数据失败 (${failCount}):`, error);
+
+		// 如果连续失败 3 次，认为域名已变，强制下次重新寻址
+		if (failCount >= 3) {
+			cachedApiBase = null;
+			document.getElementById('local-time').innerText = "检测到后端变动，正在重新寻址...";
+		} else {
+			document.getElementById('local-time').innerText = "连接中断，正在尝试重连...";
+		}
 	}
 }
 
