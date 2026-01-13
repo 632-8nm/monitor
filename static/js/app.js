@@ -21,21 +21,61 @@ const UI = {
 	},
 
 	updateTime() {
-		// 修改为中文显示
 		document.getElementById('local-time').innerText =
 			`系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
 	}
 };
 
+// ==========================================
+// 自动化寻址配置
+// ==========================================
+// 请将下方的链接替换为你 Gist 的 Raw 按钮点击后的真实链接
+const GIST_RAW_URL = "https://gist.githubusercontent.com/632-8nm/3308392c0e7486496d926b7a2b49799c/raw/opi_url.json";
+
+let cachedApiBase = null;
+
+/**
+ * 第一步：从 Gist 获取最新的隧道域名
+ */
+async function getLiveApiBase() {
+	try {
+		// 加上时间戳缓存破坏符，确保拿到的不是浏览器旧缓存
+		const response = await fetch(`${GIST_RAW_URL}?t=${Date.now()}`, { cache: "no-store" });
+		if (!response.ok) throw new Error('无法读取 Gist 配置');
+		const config = await response.json();
+		return config.url; // 返回如 https://xxx.trycloudflare.com
+	} catch (error) {
+		console.error('寻址失败:', error);
+		return null;
+	}
+}
+
+/**
+ * 第二步：抓取监控数据
+ */
 async function fetchStats() {
 	try {
-		// const response = await fetch('/api/stats');
-		// const response = await fetch('http://192.168.124.21:8080/api/stats');
-		const response = await fetch('https://bat-glossary-garmin-studying.trycloudflare.com/api/stats');
-		if (!response.ok) throw new Error('网络异常');
+		// 1. 如果还没有域名，先获取域名
+		if (!cachedApiBase) {
+			cachedApiBase = await getLiveApiBase();
+		}
+
+		if (!cachedApiBase) {
+			document.getElementById('local-time').innerText = "正在寻找后端入口...";
+			return;
+		}
+
+		// 2. 使用拿到的域名请求数据
+		const response = await fetch(`${cachedApiBase}/api/stats`);
+		if (!response.ok) {
+			// 如果请求失败，可能是域名失效了，清除缓存下次尝试重新寻址
+			cachedApiBase = null;
+			throw new Error('后端连接失效');
+		}
 
 		const data = await response.json();
 
+		// 3. 更新 UI
 		UI.updateCPU(data.cpu_usage);
 		UI.updateTemp(data.cpu_temp);
 		UI.updateMemory(data.mem_usage, data.mem_summary);
@@ -47,7 +87,10 @@ async function fetchStats() {
 	}
 }
 
+// 初始化
 document.addEventListener('DOMContentLoaded', () => {
+	// 立即执行一次
 	fetchStats();
+	// 每 1000 毫秒刷新一次
 	setInterval(fetchStats, 1000);
 });
