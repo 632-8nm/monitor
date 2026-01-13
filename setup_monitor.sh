@@ -2,19 +2,19 @@
 
 # 配置项
 SERVICE_NAME="monitor"
-BINARY_NAME="monitor_server" # 你编译后的二进制文件名
-PROJECT_DIR=$(pwd)           # 假设你在项目根目录下执行脚本
+BINARY_NAME="monitor_server" 
+PROJECT_DIR=$(pwd)           
 USER_NAME=$USER
 
 echo "------------------------------------------------"
 echo "🚀 Orange Pi 监控服务一键配置工具"
 echo "------------------------------------------------"
 
-# 1. 编译 Go 程序 (确保依赖已安装)
+# 1. 编译 Go 程序 (编译当前目录下的所有文件)
 echo "📦 正在编译 Go 后端程序..."
-go build -o $BINARY_NAME ./server.go ./sensor.go
+go build -o $BINARY_NAME . 
 if [ $? -ne 0 ]; then
-    echo "❌ 编译失败，请检查 Go 环境或代码错误。"
+    echo "❌ 编译失败，请检查 Go 代码是否有 main 函数。"
     exit 1
 fi
 chmod +x $BINARY_NAME
@@ -47,14 +47,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable $SERVICE_NAME
 sudo systemctl restart $SERVICE_NAME
 
-# 4. 检查服务状态
 if systemctl is-active --quiet $SERVICE_NAME; then
     echo "------------------------------------------------"
     echo "🎉 部署完成！"
-    echo "✅ 监控服务已启动并设为开机自启。"
-    echo "🔍 查看实时日志: tail -f service.log"
-    echo "🛑 停止服务命令: sudo systemctl stop $SERVICE_NAME"
+    echo "✅ 服务 '$SERVICE_NAME' 已就绪。"
     echo "------------------------------------------------"
-else
-    echo "❌ 服务启动失败，请运行 'journalctl -u $SERVICE_NAME' 查看原因。"
 fi
