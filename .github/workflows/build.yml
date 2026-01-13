@@ -1,8 +1,9 @@
-name: OPI Simple Deploy
+name: Simple Deploy
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -13,19 +14,21 @@ jobs:
 
       - name: Build and Run
         run: |
-          # 1. 进入代码目录并编译
+          # 1. 编译
           go build -o orangepi-monitor .
-          
-          # 2. 赋予权限
           chmod +x orangepi-monitor
           
-          # 3. 杀掉旧进程并启动
-          # 使用 fuser 可以精准清理占用 8080 端口的残余
+          # 2. 清理旧进程
+          # 使用 sudo fuser 需要权限，如果 Runner 报错，请看下方说明
           sudo fuser -k 8080/tcp || true
           
-          # 4. 后台启动
+          # 3. 启动
+          # 明确使用 ./ 指定当前路径
           nohup ./orangepi-monitor > log.txt 2>&1 &
           
-          # 5. 打印一下日志前几行确认没崩
+          # 4. 验证
           sleep 2
+          echo "--- 启动日志输出 ---"
           cat log.txt
+          echo "------------------"
+          ps aux | grep orangepi-monitor | grep -v grep
