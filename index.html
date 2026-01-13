@@ -3,87 +3,200 @@
 
 <head>
 	<meta charset="UTF-8">
-	<title>Orange Pi 监控仪表盘</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Orange Pi Dashboard</title>
 	<style>
-		body {
-			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-			background: #1a1a1a;
-			color: #fff;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			height: 100vh;
+		/* 1. 优雅的变量定义 */
+		:root {
+			--bg-color: #0f172a;
+			--card-bg: #1e293b;
+			--accent-color: #38bdf8;
+			--text-main: #f8fafc;
+			--text-dim: #94a3b8;
+			--danger: #ef4444;
+			--success: #10b981;
+		}
+
+		* {
 			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
 		}
 
-		.container {
+		body {
+			background-color: var(--bg-color);
+			font-family: 'Segoe UI', system-ui, sans-serif;
+			color: var(--text-main);
 			display: flex;
-			gap: 20px;
+			flex-direction: column;
+			align-items: center;
+			min-height: 100vh;
+			padding: 2rem;
 		}
 
-		.card {
-			background: #2d2d2d;
-			padding: 30px;
-			border-radius: 15px;
-			box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+		header {
+			margin-bottom: 2rem;
 			text-align: center;
-			min-width: 200px;
-			border-top: 5px solid #00ff88;
 		}
 
-		.label {
-			font-size: 14px;
-			color: #888;
-			text-transform: uppercase;
-			margin-bottom: 10px;
+		header h1 {
+			font-size: 1.5rem;
+			letter-spacing: 1px;
+			color: var(--accent-color);
 		}
 
-		.value {
-			font-size: 48px;
-			font-weight: bold;
-			margin: 10px 0;
-			color: #00ff88;
+		header p {
+			color: var(--text-dim);
+			font-size: 0.8rem;
+			margin-top: 0.5rem;
 		}
 
-		.unit {
-			font-size: 18px;
-			color: #555;
+		/* 2. 网格布局架构 */
+		.container {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+			gap: 1.5rem;
+			width: 100%;
+			max-width: 1000px;
+		}
+
+		/* 3. 卡片组件化设计 */
+		.card {
+			background: var(--card-bg);
+			padding: 1.5rem;
+			border-radius: 1rem;
+			box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+			border: 1px solid rgba(255, 255, 255, 0.05);
+			transition: transform 0.2s;
+		}
+
+		.card:hover {
+			transform: translateY(-5px);
+		}
+
+		.card-title {
+			color: var(--text-dim);
+			font-size: 0.9rem;
+			font-weight: 600;
+			margin-bottom: 1rem;
+		}
+
+		.card-value {
+			font-size: 2.2rem;
+			font-weight: 700;
+			margin-bottom: 0.5rem;
+		}
+
+		.card-unit {
+			font-size: 1rem;
+			color: var(--text-dim);
+			margin-left: 0.2rem;
+		}
+
+		/* 进度条设计 */
+		.progress-container {
+			height: 8px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 4px;
+			overflow: hidden;
+			margin-top: 1rem;
+		}
+
+		.progress-bar {
+			height: 100%;
+			width: 0%;
+			background: var(--accent-color);
+			transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+
+		.status-footer {
+			margin-top: 2rem;
+			font-size: 0.75rem;
+			color: var(--text-dim);
+		}
+
+		.dot {
+			height: 8px;
+			width: 8px;
+			background-color: var(--success);
+			border-radius: 50%;
+			display: inline-block;
+			margin-right: 5px;
 		}
 	</style>
 </head>
 
 <body>
+
+	<header>
+		<h1>ORANGE PI MONITOR</h1>
+		<p id="local-time">System synchronization active</p>
+	</header>
+
 	<div class="container">
 		<div class="card">
-			<div class="label">CPU 温度</div>
-			<div class="value" id="temp">--</div>
+			<div class="card-title">CPU LOAD</div>
+			<div class="card-value"><span id="cpu-usage">0</span><span class="card-unit">%</span></div>
+			<div class="progress-container">
+				<div id="cpu-bar" class="progress-bar"></div>
+			</div>
 		</div>
-		<div class="card" style="border-top-color: #00d4ff;">
-			<div class="label">CPU 使用率</div>
-			<div class="value" id="usage">--</div>
-			<div class="unit">%</div>
+
+		<div class="card">
+			<div class="card-title">TEMPERATURE</div>
+			<div class="card-value" id="cpu-temp">--°C</div>
+			<p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 10px;">Thermal Zone 0</p>
+		</div>
+
+		<div class="card">
+			<div class="card-title">MEMORY</div>
+			<div class="card-value"><span id="mem-usage">0</span><span class="card-unit">%</span></div>
+			<p id="mem-summary" style="font-size: 0.8rem; color: var(--text-dim); margin-top: 5px;">0 / 0 GB</p>
+			<div class="progress-container">
+				<div id="mem-bar" class="progress-bar"></div>
+			</div>
 		</div>
 	</div>
 
+	<div class="status-footer">
+		<span class="dot"></span> 实时数据更新中 (1s 间隔) | Endpoint: /api/stats
+	</div>
+
 	<script>
-		async function updateStats() {
+		// 4. 数据驱动的更新逻辑
+		const updateUI = (data) => {
+			// 更新 CPU
+			document.getElementById('cpu-usage').innerText = data.cpu_usage.toFixed(1);
+			document.getElementById('cpu-bar').style.width = data.cpu_usage + '%';
+
+			// 更新温度 (根据温度改变颜色)
+			const tempEl = document.getElementById('cpu-temp');
+			tempEl.innerText = data.cpu_temp;
+			const tempVal = parseFloat(data.cpu_temp);
+			tempEl.style.color = tempVal > 60 ? 'var(--danger)' : 'var(--text-main)';
+
+			// 更新内存
+			document.getElementById('mem-usage').innerText = data.mem_usage.toFixed(1);
+			document.getElementById('mem-bar').style.width = data.mem_usage + '%';
+			document.getElementById('mem-summary').innerText = data.mem_summary;
+
+			// 更新时间
+			document.getElementById('local-time').innerText = `Last Update: ${new Date().toLocaleTimeString()}`;
+		};
+
+		async function fetchData() {
 			try {
-				// 前端主动发起请求 (联调开始！)
 				const response = await fetch('/api/stats');
 				const data = await response.json();
-
-				// 将后端发来的 JSON 数据更新到网页元素上
-				document.getElementById('temp').innerText = data.cpu_temp;
-				document.getElementById('usage').innerText = data.cpu_usage.toFixed(1);
+				updateUI(data);
 			} catch (error) {
-				console.error("获取数据失败:", error);
+				console.error('Fetch error:', error);
 			}
 		}
 
-		// 每一秒钟“老老实实” GET 一次
-		setInterval(updateStats, 1000);
-		// 页面打开时立即执行一次
-		updateStats();
+		// 定时器
+		setInterval(fetchData, 1000);
+		fetchData(); // 立即执行一次
 	</script>
 </body>
 
