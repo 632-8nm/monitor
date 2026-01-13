@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 
 # 配置项
 SERVICE_NAME="monitor"
