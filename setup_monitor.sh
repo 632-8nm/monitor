@@ -1,10 +1,11 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # 配置项
 SERVICE_NAME="monitor"
 BINARY_NAME="monitor_server" 
 PROJECT_DIR=$(pwd)           
 USER_NAME=$USER
+ENV_FILE="/etc/default/monitor"
 
 echo "------------------------------------------------"
 echo "🚀 Orange Pi 监控服务一键配置工具"
@@ -31,6 +32,7 @@ After=network.target
 Type=simple
 User=$USER_NAME
 WorkingDirectory=$PROJECT_DIR
+EnvironmentFile=-$ENV_FILE
 ExecStart=$PROJECT_DIR/$BINARY_NAME
 Restart=always
 RestartSec=5
@@ -40,6 +42,17 @@ StandardError=append:$PROJECT_DIR/service.log
 [Install]
 WantedBy=multi-user.target
 EOT"
+
+# 2.1 生成默认环境变量文件（若不存在）
+if [ ! -f "$ENV_FILE" ]; then
+    echo "🔐 正在创建默认安全配置文件: $ENV_FILE"
+    sudo bash -c "cat <<EOT > $ENV_FILE
+MONITOR_LISTEN_ADDR=127.0.0.1:8080
+# MONITOR_BASIC_AUTH_USER=admin
+# MONITOR_BASIC_AUTH_PASS=change_me
+# MONITOR_ALLOWED_ORIGINS=https://monitor.your-domain.example,https://orangepi-monitor.your-domain.example
+EOT"
+fi
 
 # 3. 启动并激活服务
 echo "⚙️ 正在启动服务并设置开机自启..."
