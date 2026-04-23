@@ -34,7 +34,7 @@
 };
 
 // 固定后端地址
-const API_URL = "https://monitor.jax.com/api/stats";
+const API_URL = "https://orange-monitor.632-8nm.com/api/stats";
 let failCount = 0;
 
 async function fetchStats() {
