@@ -1,5 +1,4 @@
 ﻿const UI = {
-	// 格式化运行时间
 	formatUptime(seconds) {
 		const d = Math.floor(seconds / (3600 * 24));
 		const h = Math.floor((seconds % (3600 * 24)) / 3600);
@@ -34,35 +33,22 @@
 	}
 };
 
-const GIST_RAW_URL = "https://gist.githubusercontent.com/632-8nm/39872bc42a8a45a854c982f8016185bd/raw/orangepi_url.json";
-let cachedApiBase = null;
+// 固定后端地址
+const API_URL = "https://monitor.6328nm.com/api/stats";
 let failCount = 0;
-
-async function getLiveApiBase() {
-	try {
-		const response = await fetch(`${GIST_RAW_URL}?t=${Date.now()}`, { cache: "no-store" });
-		const config = await response.json();
-		return config.url;
-	} catch (e) { return null; }
-}
 
 async function fetchStats() {
 	try {
-		if (!cachedApiBase) cachedApiBase = await getLiveApiBase();
-		if (!cachedApiBase) return;
-
-		const response = await fetch(`${cachedApiBase}/api/stats`);
-		if (!response.ok) throw new Error();
+		const response = await fetch(API_URL);
+		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
 		const data = await response.json();
 		UI.updateAll(data);
-		failCount = 0;
+		failCount = 0; // 请求成功，重置失败计数
 	} catch (error) {
 		failCount++;
-		if (failCount >= 3) {
-			cachedApiBase = null;
-			document.getElementById('local-time').innerText = "正在重新寻址后端...";
-		}
+		document.getElementById('local-time').innerText = `连接后端失败 (重试次数: ${failCount})...`;
+		console.error("Failed to fetch stats:", error);
 	}
 }
 
