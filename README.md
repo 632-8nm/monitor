@@ -2,7 +2,7 @@
 
 本仓库用于管理 Orange Pi Zero3 的系统监控程序，通过 GitHub Actions 实现代码的自动编译与持续部署。
 
-**🌐 监控演示：** [https://orangepi-monitor.your-domain.example/](https://monitor.your-domain.example/)
+**🌐 监控演示：** [https://orangepi-monitor.your-domain.example/](https://orangepi-monitor.your-domain.example/)
 
 ## 项目功能
 
