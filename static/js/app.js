@@ -33,13 +33,32 @@
 	}
 };
 
-// 固定后端地址
-const API_URL = "https://orange-monitor.632-8nm.com/api/stats";
+// 从 Gist 获取动态域名
+const GIST_RAW_URL = "https://gist.githubusercontent.com/632-8nm/2686c2db9a58d202a76dd254e5d9032d/raw/orangepi_url.json";
+let cachedApiBase = null;
 let failCount = 0;
+
+async function getLiveApiBase() {
+	try {
+		const response = await fetch(`${GIST_RAW_URL}?t=${Date.now()}`, { cache: "no-store" });
+		const config = await response.json();
+		return config.url;
+	} catch (e) {
+		console.error("Failed to get API base from Gist:", e);
+		return null;
+	}
+}
 
 async function fetchStats() {
 	try {
-		const response = await fetch(API_URL);
+		if (!cachedApiBase) {
+			cachedApiBase = await getLiveApiBase();
+			if (!cachedApiBase) {
+				throw new Error("Failed to get API base");
+			}
+		}
+
+		const response = await fetch(`${cachedApiBase}/api/stats`);
 		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
 		const data = await response.json();
@@ -49,6 +68,11 @@ async function fetchStats() {
 		failCount++;
 		document.getElementById('local-time').innerText = `连接后端失败 (重试次数: ${failCount})...`;
 		console.error("Failed to fetch stats:", error);
+
+		// 失败次数过多，重新获取域名
+		if (failCount >= 3) {
+			cachedApiBase = null;
+		}
 	}
 }
 
