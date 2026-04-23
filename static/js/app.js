@@ -34,7 +34,7 @@
 };
 
 // 固定后端地址
-const API_URL = "https://monitor.6328nm.com/api/stats";
+const API_URL = "https://monitor.jax.com/api/stats";
 let failCount = 0;
 
 async function fetchStats() {
