@@ -8,21 +8,30 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/host"
+	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
 )
 
 type SystemStats struct {
-	CPUTemp    string  `json:"cpu_temp"`
-	CPUUsage   float64 `json:"cpu_usage"`
-	CPUFreq    float64 `json:"cpu_freq"`
-	MemUsage   float64 `json:"mem_usage"`
-	MemSummary string  `json:"mem_summary"`
-	Uptime     uint64  `json:"uptime"`
-	OSInfo     string  `json:"os_info"`
-	NetDown    float64 `json:"net_down"` // KB/s
-	NetUp      float64 `json:"net_up"`   // KB/s
+	CPUTemp     string  `json:"cpu_temp"`
+	CPUUsage    float64 `json:"cpu_usage"`
+	CPUFreq     float64 `json:"cpu_freq"`
+	Load1       float64 `json:"load_1"`
+	Load5       float64 `json:"load_5"`
+	Load15      float64 `json:"load_15"`
+	MemUsage    float64 `json:"mem_usage"`
+	MemSummary  string  `json:"mem_summary"`
+	SwapUsage   float64 `json:"swap_usage"`
+	SwapSummary string  `json:"swap_summary"`
+	DiskUsage   float64 `json:"disk_usage"`
+	DiskSummary string  `json:"disk_summary"`
+	Uptime      uint64  `json:"uptime"`
+	OSInfo      string  `json:"os_info"`
+	NetDown     float64 `json:"net_down"`
+	NetUp       float64 `json:"net_up"`
 }
 
 type Collector struct {
@@ -63,9 +72,11 @@ func (c *Collector) GetCPUFreq() float64 {
 func (c *Collector) CollectAll() SystemStats {
 	cpuPercent, _ := cpu.Percent(0, false)
 	v, _ := mem.VirtualMemory()
+	swap, _ := mem.SwapMemory()
 	h, _ := host.Info()
+	loadAvg, _ := load.Avg()
+	diskStat, _ := disk.Usage("/")
 
-	// 计算网速
 	io, _ := net.IOCounters(false)
 	var downSpeed, upSpeed float64
 	if len(io) > 0 {
@@ -85,15 +96,27 @@ func (c *Collector) CollectAll() SystemStats {
 		usage = cpuPercent[0]
 	}
 
+	load1, load5, load15 := 0.0, 0.0, 0.0
+	if loadAvg != nil {
+		load1, load5, load15 = loadAvg.Load1, loadAvg.Load5, loadAvg.Load15
+	}
+
 	return SystemStats{
-		CPUTemp:    c.GetCPUTemp(),
-		CPUUsage:   usage,
-		CPUFreq:    c.GetCPUFreq(),
-		MemUsage:   v.UsedPercent,
-		MemSummary: fmt.Sprintf("%.2f / %.2f GB", float64(v.Used)/1e9, float64(v.Total)/1e9),
-		Uptime:     h.Uptime,
-		OSInfo:     fmt.Sprintf("%s %s", h.Platform, h.PlatformVersion),
-		NetDown:    downSpeed,
-		NetUp:      upSpeed,
+		CPUTemp:     c.GetCPUTemp(),
+		CPUUsage:    usage,
+		CPUFreq:     c.GetCPUFreq(),
+		Load1:       load1,
+		Load5:       load5,
+		Load15:      load15,
+		MemUsage:    v.UsedPercent,
+		MemSummary:  fmt.Sprintf("%.2f / %.2f GB", float64(v.Used)/1e9, float64(v.Total)/1e9),
+		SwapUsage:   swap.UsedPercent,
+		SwapSummary: fmt.Sprintf("%.2f / %.2f GB", float64(swap.Used)/1e9, float64(swap.Total)/1e9),
+		DiskUsage:   diskStat.UsedPercent,
+		DiskSummary: fmt.Sprintf("%.2f / %.2f GB", float64(diskStat.Used)/1e9, float64(diskStat.Total)/1e9),
+		Uptime:      h.Uptime,
+		OSInfo:      fmt.Sprintf("%s %s", h.Platform, h.PlatformVersion),
+		NetDown:     downSpeed,
+		NetUp:       upSpeed,
 	}
 }

@@ -1,4 +1,4 @@
-﻿:root {
+:root {
 	--bg-color: #0f172a;
 	--card-bg: #1e293b;
 	--accent-color: #38bdf8;
@@ -85,6 +85,32 @@ header h1 {
 	width: 0%;
 	background: linear-gradient(90deg, var(--accent-color), #818cf8);
 	transition: width 0.5s ease;
+}
+
+/* 负载均值 */
+.load-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.load-item {
+	text-align: center;
+	flex: 1;
+}
+
+.load-value {
+	display: block;
+	font-size: 1.6rem;
+	font-weight: 800;
+	color: var(--accent-color);
+}
+
+.load-label {
+	display: block;
+	font-size: 0.7rem;
+	color: var(--text-dim);
+	margin-top: 4px;
 }
 
 /* 系统与网络板块特定样式 */
