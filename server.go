@@ -95,15 +95,22 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+type nocacheFS struct{ h http.Handler }
+
+func (n *nocacheFS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	n.h.ServeHTTP(w, r)
+}
+
 func (s *Server) Start(addr string) {
 	mux := http.NewServeMux()
 
-	// 这行代码的意思是：当收到以 /static/ 开头的请求时，去本机的 static 文件夹找文件
-	fs := http.FileServer(http.Dir("static"))
+	fs := &nocacheFS{http.FileServer(http.Dir("static"))}
 	mux.Handle("/static/", s.authMiddleware(http.StripPrefix("/static/", fs)))
 
 	// 首页路由：当直接访问根目录时，返回 index.html
 	mux.Handle("/", s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		http.ServeFile(w, r, "index.html")
 	})))
 
