@@ -25,11 +25,38 @@
 		</div>
 
 		<div class="card">
+			<div class="card-title">系统负载</div>
+			<div class="load-row">
+				<div class="load-item">
+					<span class="load-value" id="load-1">0.00</span>
+					<span class="load-label">1 分钟</span>
+				</div>
+				<div class="load-item">
+					<span class="load-value" id="load-5">0.00</span>
+					<span class="load-label">5 分钟</span>
+				</div>
+				<div class="load-item">
+					<span class="load-value" id="load-15">0.00</span>
+					<span class="load-label">15 分钟</span>
+				</div>
+			</div>
+		</div>
+
+		<div class="card">
 			<div class="card-title">内存资源</div>
 			<div class="card-value"><span id="mem-usage">0</span><span class="card-unit">%</span></div>
 			<p id="mem-summary" class="card-subtitle">0 / 0 GB</p>
 			<div class="progress-container">
 				<div id="mem-bar" class="progress-bar"></div>
+			</div>
+		</div>
+
+		<div class="card">
+			<div class="card-title">交换内存</div>
+			<div class="card-value"><span id="swap-usage">0</span><span class="card-unit">%</span></div>
+			<p id="swap-summary" class="card-subtitle">0 / 0 GB</p>
+			<div class="progress-container">
+				<div id="swap-bar" class="progress-bar"></div>
 			</div>
 		</div>
 
@@ -42,6 +69,15 @@
 			<div class="net-item">
 				<span class="net-label">上传 (↑)</span>
 				<span class="net-speed" id="net-up">0.0</span> <small>KB/s</small>
+			</div>
+		</div>
+
+		<div class="card">
+			<div class="card-title">磁盘使用</div>
+			<div class="card-value"><span id="disk-usage">0</span><span class="card-unit">%</span></div>
+			<p id="disk-summary" class="card-subtitle">0 / 0 GB</p>
+			<div class="progress-container">
+				<div id="disk-bar" class="progress-bar"></div>
 			</div>
 		</div>
 

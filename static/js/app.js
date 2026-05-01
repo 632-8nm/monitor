@@ -16,18 +16,33 @@
 			tempEl.innerText = data.cpu_temp;
 			tempEl.style.color = parseFloat(data.cpu_temp) > 60 ? '#ef4444' : '#f8fafc';
 
+			// Load
+			document.getElementById('load-1').innerText = (data.load_1 || 0).toFixed(2);
+			document.getElementById('load-5').innerText = (data.load_5 || 0).toFixed(2);
+			document.getElementById('load-15').innerText = (data.load_15 || 0).toFixed(2);
+
 			// Memory
 			document.getElementById('mem-usage').innerText = data.mem_usage.toFixed(1);
 			document.getElementById('mem-bar').style.width = data.mem_usage + '%';
 			document.getElementById('mem-summary').innerText = data.mem_summary;
 
-			// System
-			document.getElementById('sys-os').innerText = data.os_info;
-			document.getElementById('sys-uptime').innerText = this.formatUptime(data.uptime);
+			// Swap
+			document.getElementById('swap-usage').innerText = (data.swap_usage || 0).toFixed(1);
+			document.getElementById('swap-bar').style.width = (data.swap_usage || 0) + '%';
+			document.getElementById('swap-summary').innerText = data.swap_summary || '0 / 0 GB';
 
 			// Network
 			document.getElementById('net-down').innerText = data.net_down.toFixed(1);
 			document.getElementById('net-up').innerText = data.net_up.toFixed(1);
+
+			// Disk
+			document.getElementById('disk-usage').innerText = (data.disk_usage || 0).toFixed(1);
+			document.getElementById('disk-bar').style.width = (data.disk_usage || 0) + '%';
+			document.getElementById('disk-summary').innerText = data.disk_summary || '0 / 0 GB';
+
+			// System
+			document.getElementById('sys-os').innerText = data.os_info;
+			document.getElementById('sys-uptime').innerText = this.formatUptime(data.uptime);
 
 			document.getElementById('local-time').innerText =
 				`系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
