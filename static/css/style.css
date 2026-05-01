@@ -5,6 +5,7 @@
 	--text-main: #f8fafc;
 	--text-dim: #94a3b8;
 	--success: #10b981;
+	--danger: #ef4444;
 }
 
 * {
@@ -33,6 +34,12 @@ header h1 {
 	letter-spacing: 2px;
 }
 
+#local-time {
+	color: var(--text-dim);
+	font-size: 0.8rem;
+	margin-top: 4px;
+}
+
 .container {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -41,6 +48,7 @@ header h1 {
 	max-width: 1000px;
 }
 
+/* ===== 卡片容器 ===== */
 .card {
 	background: var(--card-bg);
 	padding: 1.5rem;
@@ -50,11 +58,14 @@ header h1 {
 
 .card-title {
 	color: var(--text-dim);
-	font-size: 0.8rem;
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 1px;
 	margin-bottom: 1rem;
-	font-weight: bold;
+	font-weight: 600;
 }
 
+/* ===== 主数值（CPU / 内存 / 交换 / 磁盘 通用）===== */
 .card-value {
 	font-size: 2.2rem;
 	font-weight: 800;
@@ -67,11 +78,12 @@ header h1 {
 }
 
 .card-subtitle {
-	font-size: 0.8rem;
+	font-size: 0.75rem;
 	color: var(--text-dim);
 	margin-top: 8px;
 }
 
+/* ===== 进度条（CPU / 内存 / 交换 / 磁盘 通用）===== */
 .progress-container {
 	height: 8px;
 	background: rgba(0, 0, 0, 0.3);
@@ -87,7 +99,7 @@ header h1 {
 	transition: width 0.5s ease;
 }
 
-/* 负载均值 */
+/* ===== 系统负载（三列布局）===== */
 .load-row {
 	display: flex;
 	justify-content: space-between;
@@ -101,24 +113,61 @@ header h1 {
 
 .load-value {
 	display: block;
-	font-size: 1.6rem;
+	font-size: 1.8rem;
 	font-weight: 800;
-	color: var(--accent-color);
 }
 
 .load-label {
 	display: block;
-	font-size: 0.7rem;
+	font-size: 0.75rem;
 	color: var(--text-dim);
 	margin-top: 4px;
 }
 
-/* 系统与网络板块特定样式 */
+/* ===== 实时网络 ===== */
+.net-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.net-item {
+	flex: 1;
+}
+
+.net-label {
+	display: block;
+	font-size: 0.75rem;
+	color: var(--text-dim);
+	margin-bottom: 4px;
+}
+
+.net-value {
+	font-size: 1.5rem;
+	font-weight: 800;
+}
+
+.net-unit {
+	font-size: 0.8rem;
+	color: var(--text-dim);
+	margin-left: 2px;
+}
+
+/* ===== 系统运行信息 ===== */
 .info-row {
 	display: flex;
 	justify-content: space-between;
 	margin-bottom: 0.8rem;
-	font-size: 0.9rem;
+	font-size: 0.85rem;
+	color: var(--text-dim);
+}
+
+.info-row span:first-child {
+	color: var(--text-dim);
+}
+
+.info-row span:last-child {
+	color: var(--text-main);
 }
 
 .status-badge {
@@ -128,29 +177,15 @@ header h1 {
 	color: var(--success);
 	border-radius: 4px;
 	font-size: 0.75rem;
+	font-weight: 600;
 	margin-top: 0.5rem;
 }
 
-.net-item {
-	margin-bottom: 1rem;
-}
-
-.net-label {
-	display: block;
-	font-size: 0.75rem;
-	color: var(--text-dim);
-}
-
-.net-speed {
-	font-size: 1.5rem;
-	font-weight: bold;
-	color: var(--accent-color);
-}
-
+/* ===== 页面底部 ===== */
 .status-footer {
 	margin-top: 2rem;
 	color: var(--text-dim);
-	font-size: 0.8rem;
+	font-size: 0.75rem;
 }
 
 .status-dot {
@@ -161,4 +196,5 @@ header h1 {
 	display: inline-block;
 	margin-right: 8px;
 	box-shadow: 0 0 8px var(--success);
+	vertical-align: middle;
 }

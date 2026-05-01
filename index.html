@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>System Monitor</title>
-	<link rel="stylesheet" href="static/css/style.css?v=2">
+	<link rel="stylesheet" href="static/css/style.css?v=3">
 </head>
 
 <body>
@@ -62,13 +62,15 @@
 
 		<div class="card">
 			<div class="card-title">实时网络传输</div>
-			<div class="net-item">
-				<span class="net-label">下载 (↓)</span>
-				<span class="net-speed" id="net-down">0.0</span> <small>KB/s</small>
-			</div>
-			<div class="net-item">
-				<span class="net-label">上传 (↑)</span>
-				<span class="net-speed" id="net-up">0.0</span> <small>KB/s</small>
+			<div class="net-row">
+				<div class="net-item">
+					<span class="net-label">下载</span>
+					<span class="net-value" id="net-down">0.0</span><span class="net-unit">KB/s</span>
+				</div>
+				<div class="net-item">
+					<span class="net-label">上传</span>
+					<span class="net-value" id="net-up">0.0</span><span class="net-unit">KB/s</span>
+				</div>
 			</div>
 		</div>
 
@@ -93,7 +95,7 @@
 		<span class="status-dot"></span> 数据每秒实时更新
 	</div>
 
-	<script src="static/js/app.js?v=2"></script>
+	<script src="static/js/app.js?v=3"></script>
 </body>
 
 </html>
