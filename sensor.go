@@ -32,6 +32,9 @@ type SystemStats struct {
 	OSInfo      string  `json:"os_info"`
 	NetDown     float64 `json:"net_down"`
 	NetUp       float64 `json:"net_up"`
+	Procs       uint64  `json:"procs"`
+	BootTime    uint64  `json:"boot_time"`
+	Connections uint64  `json:"connections"`
 }
 
 type Collector struct {
@@ -91,6 +94,9 @@ func (c *Collector) CollectAll() SystemStats {
 		c.lastUpdate = now
 	}
 
+	connections, _ := net.Connections("tcp")
+	connCount := uint64(len(connections))
+
 	usage := 0.0
 	if len(cpuPercent) > 0 {
 		usage = cpuPercent[0]
@@ -118,5 +124,8 @@ func (c *Collector) CollectAll() SystemStats {
 		OSInfo:      fmt.Sprintf("%s %s", h.Platform, h.PlatformVersion),
 		NetDown:     downSpeed,
 		NetUp:       upSpeed,
+		Procs:       h.Procs,
+		BootTime:    h.BootTime,
+		Connections: connCount,
 	}
 }

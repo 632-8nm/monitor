@@ -7,6 +7,16 @@
 			return `${d}天 ${h}时 ${m}分`;
 		},
 
+		formatBootTime(ts) {
+			if (!ts) return '--';
+			const d = new Date(ts * 1000);
+			const mm = String(d.getMonth() + 1).padStart(2, '0');
+			const dd = String(d.getDate()).padStart(2, '0');
+			const hh = String(d.getHours()).padStart(2, '0');
+			const min = String(d.getMinutes()).padStart(2, '0');
+			return `${mm}月${dd}日 ${hh}:${min}`;
+		},
+
 		updateAll(data) {
 			// CPU
 			document.getElementById('cpu-usage').innerText = data.cpu_usage.toFixed(1);
@@ -34,6 +44,7 @@
 			// Network
 			document.getElementById('net-down').innerText = data.net_down.toFixed(1);
 			document.getElementById('net-up').innerText = data.net_up.toFixed(1);
+			document.getElementById('net-conns').innerText = data.connections || 0;
 
 			// Disk
 			document.getElementById('disk-usage').innerText = (data.disk_usage || 0).toFixed(1);
@@ -43,6 +54,8 @@
 			// System
 			document.getElementById('sys-os').innerText = data.os_info;
 			document.getElementById('sys-uptime').innerText = this.formatUptime(data.uptime);
+			document.getElementById('sys-procs').innerText = data.procs || 0;
+			document.getElementById('sys-boot').innerText = this.formatBootTime(data.boot_time);
 
 			document.getElementById('local-time').innerText =
 				`系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
