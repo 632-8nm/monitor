@@ -50,9 +50,10 @@
 	};
 
 	let failCount = 0;
+	let delay = 1000;
 
 	function scheduleNext() {
-		setTimeout(fetchStats, 1000);
+		setTimeout(fetchStats, delay);
 	}
 
 	async function fetchStats() {
@@ -63,8 +64,10 @@
 			const data = await response.json();
 			UI.updateAll(data);
 			failCount = 0;
+			delay = 1000;
 		} catch (error) {
 			failCount++;
+			delay = Math.min(delay * 2, 30000);
 			document.getElementById('local-time').innerText = `连接后端失败 (重试次数: ${failCount})...`;
 			console.error("Failed to fetch stats:", error);
 		}
