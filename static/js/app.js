@@ -7,16 +7,6 @@
 			return `${d}天 ${h}时 ${m}分`;
 		},
 
-		formatBootTime(ts) {
-			if (!ts) return '--';
-			const d = new Date(ts * 1000);
-			const mm = String(d.getMonth() + 1).padStart(2, '0');
-			const dd = String(d.getDate()).padStart(2, '0');
-			const hh = String(d.getHours()).padStart(2, '0');
-			const min = String(d.getMinutes()).padStart(2, '0');
-			return `${mm}月${dd}日 ${hh}:${min}`;
-		},
-
 		formatBytes(bytes) {
 			if (!bytes || bytes === 0) return '0 B';
 			const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -28,7 +18,6 @@
 			// CPU
 			document.getElementById('cpu-usage').innerText = data.cpu_usage.toFixed(1);
 			document.getElementById('cpu-bar').style.width = data.cpu_usage + '%';
-			document.getElementById('cpu-model').innerText = data.cpu_model || '--';
 			document.getElementById('cpu-freq').innerText = Math.round(data.cpu_freq);
 			const tempEl = document.getElementById('cpu-temp');
 			tempEl.innerText = data.cpu_temp;
@@ -62,14 +51,6 @@
 			document.getElementById('disk-summary').innerText = data.disk_summary || '0 / 0 GB';
 			document.getElementById('disk-read').innerText = (data.disk_read || 0).toFixed(1);
 			document.getElementById('disk-write').innerText = (data.disk_write || 0).toFixed(1);
-
-			// System
-			document.getElementById('sys-hostname').innerText = data.hostname || '--';
-			document.getElementById('sys-os').innerText = data.os_info;
-			document.getElementById('sys-kernel').innerText = data.kernel_info || '--';
-			document.getElementById('sys-uptime').innerText = this.formatUptime(data.uptime);
-			document.getElementById('sys-procs').innerText = data.procs || 0;
-			document.getElementById('sys-boot').innerText = this.formatBootTime(data.boot_time);
 
 			document.getElementById('local-time').innerText =
 				`系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
