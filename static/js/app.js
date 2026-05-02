@@ -51,6 +51,10 @@
 
 	let failCount = 0;
 
+	function scheduleNext() {
+		setTimeout(fetchStats, 1000);
+	}
+
 	async function fetchStats() {
 		try {
 			const response = await fetch('/api/stats');
@@ -64,10 +68,10 @@
 			document.getElementById('local-time').innerText = `连接后端失败 (重试次数: ${failCount})...`;
 			console.error("Failed to fetch stats:", error);
 		}
+		scheduleNext();
 	}
 
 	document.addEventListener('DOMContentLoaded', () => {
 		fetchStats();
-		setInterval(fetchStats, 1000);
 	});
 })();
