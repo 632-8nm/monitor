@@ -9,39 +9,31 @@ import (
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
-	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
 )
 
 type SystemStats struct {
-	CPUTemp     string  `json:"cpu_temp"`
-	CPUUsage    float64 `json:"cpu_usage"`
-	CPUFreq     float64 `json:"cpu_freq"`
-	Load1       float64 `json:"load_1"`
-	Load5       float64 `json:"load_5"`
-	Load15      float64 `json:"load_15"`
-	MemUsage    float64 `json:"mem_usage"`
-	MemSummary  string  `json:"mem_summary"`
-	SwapUsage   float64 `json:"swap_usage"`
-	SwapSummary string  `json:"swap_summary"`
-	DiskUsage   float64 `json:"disk_usage"`
-	DiskSummary string  `json:"disk_summary"`
-	Uptime      uint64  `json:"uptime"`
-	OSInfo      string  `json:"os_info"`
-	NetDown     float64 `json:"net_down"`
-	NetUp       float64 `json:"net_up"`
-	Procs        uint64  `json:"procs"`
-	BootTime     uint64  `json:"boot_time"`
+	CPUTemp      string  `json:"cpu_temp"`
+	CPUUsage     float64 `json:"cpu_usage"`
+	CPUFreq      float64 `json:"cpu_freq"`
+	Load1        float64 `json:"load_1"`
+	Load5        float64 `json:"load_5"`
+	Load15       float64 `json:"load_15"`
+	MemUsage     float64 `json:"mem_usage"`
+	MemSummary   string  `json:"mem_summary"`
+	SwapUsage    float64 `json:"swap_usage"`
+	SwapSummary  string  `json:"swap_summary"`
+	DiskUsage    float64 `json:"disk_usage"`
+	DiskSummary  string  `json:"disk_summary"`
+	NetDown      float64 `json:"net_down"`
+	NetUp        float64 `json:"net_up"`
 	Connections  uint64  `json:"connections"`
-	CPUModel     string  `json:"cpu_model"`
 	MemAvailable uint64  `json:"mem_available"`
 	MemCached    uint64  `json:"mem_cached"`
 	DiskRead     float64 `json:"disk_read"`
 	DiskWrite    float64 `json:"disk_write"`
-	Hostname     string  `json:"hostname"`
-	KernelInfo   string  `json:"kernel_info"`
 }
 
 type Collector struct {
@@ -85,7 +77,6 @@ func (c *Collector) CollectAll() SystemStats {
 	cpuPercent, _ := cpu.Percent(0, false)
 	v, _ := mem.VirtualMemory()
 	swap, _ := mem.SwapMemory()
-	h, _ := host.Info()
 	loadAvg, _ := load.Avg()
 	diskStat, _ := disk.Usage("/")
 
@@ -107,13 +98,6 @@ func (c *Collector) CollectAll() SystemStats {
 
 	connections, _ := net.Connections("tcp")
 	connCount := uint64(len(connections))
-
-	// CPU model
-	cpuInfos, _ := cpu.Info()
-	cpuModel := ""
-	if len(cpuInfos) > 0 {
-		cpuModel = cpuInfos[0].ModelName
-	}
 
 	// Disk I/O rates
 	diskIO, _ := disk.IOCounters()
@@ -146,7 +130,6 @@ func (c *Collector) CollectAll() SystemStats {
 		CPUTemp:      c.GetCPUTemp(),
 		CPUUsage:     usage,
 		CPUFreq:      c.GetCPUFreq(),
-		CPUModel:     cpuModel,
 		Load1:        load1,
 		Load5:        load5,
 		Load15:       load15,
@@ -160,14 +143,8 @@ func (c *Collector) CollectAll() SystemStats {
 		DiskSummary:  fmt.Sprintf("%.2f / %.2f GB", float64(diskStat.Used)/1e9, float64(diskStat.Total)/1e9),
 		DiskRead:     diskReadSpeed,
 		DiskWrite:    diskWriteSpeed,
-		Uptime:       h.Uptime,
-		OSInfo:       fmt.Sprintf("%s %s", h.Platform, h.PlatformVersion),
-		Hostname:     h.Hostname,
-		KernelInfo:   fmt.Sprintf("%s %s", h.KernelVersion, h.KernelArch),
 		NetDown:      downSpeed,
 		NetUp:        upSpeed,
-		Procs:        h.Procs,
-		BootTime:     h.BootTime,
 		Connections:  connCount,
 	}
 }
