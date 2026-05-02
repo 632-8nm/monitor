@@ -32,15 +32,24 @@ type SystemStats struct {
 	OSInfo      string  `json:"os_info"`
 	NetDown     float64 `json:"net_down"`
 	NetUp       float64 `json:"net_up"`
-	Procs       uint64  `json:"procs"`
-	BootTime    uint64  `json:"boot_time"`
-	Connections uint64  `json:"connections"`
+	Procs        uint64  `json:"procs"`
+	BootTime     uint64  `json:"boot_time"`
+	Connections  uint64  `json:"connections"`
+	CPUModel     string  `json:"cpu_model"`
+	MemAvailable uint64  `json:"mem_available"`
+	MemCached    uint64  `json:"mem_cached"`
+	DiskRead     float64 `json:"disk_read"`
+	DiskWrite    float64 `json:"disk_write"`
+	Hostname     string  `json:"hostname"`
+	KernelInfo   string  `json:"kernel_info"`
 }
 
 type Collector struct {
-	prevNetRecv uint64
-	prevNetSent uint64
-	lastUpdate  time.Time
+	prevNetRecv   uint64
+	prevNetSent   uint64
+	prevDiskRead  uint64
+	prevDiskWrite uint64
+	lastUpdate    time.Time
 }
 
 func (c *Collector) GetCPUTemp() string {
@@ -80,22 +89,48 @@ func (c *Collector) CollectAll() SystemStats {
 	loadAvg, _ := load.Avg()
 	diskStat, _ := disk.Usage("/")
 
+	now := time.Now()
+	prevUpdate := c.lastUpdate
+	duration := now.Sub(prevUpdate).Seconds()
+
+	// Network rates
 	io, _ := net.IOCounters(false)
 	var downSpeed, upSpeed float64
 	if len(io) > 0 {
-		now := time.Now()
-		duration := now.Sub(c.lastUpdate).Seconds()
-		if duration > 0 {
+		if duration > 0 && !prevUpdate.IsZero() {
 			downSpeed = float64(io[0].BytesRecv-c.prevNetRecv) / 1024 / duration
 			upSpeed = float64(io[0].BytesSent-c.prevNetSent) / 1024 / duration
 		}
 		c.prevNetRecv = io[0].BytesRecv
 		c.prevNetSent = io[0].BytesSent
-		c.lastUpdate = now
 	}
 
 	connections, _ := net.Connections("tcp")
 	connCount := uint64(len(connections))
+
+	// CPU model
+	cpuInfos, _ := cpu.Info()
+	cpuModel := ""
+	if len(cpuInfos) > 0 {
+		cpuModel = cpuInfos[0].ModelName
+	}
+
+	// Disk I/O rates
+	diskIO, _ := disk.IOCounters()
+	var diskReadSpeed, diskWriteSpeed float64
+	var totalDiskRead, totalDiskWrite uint64
+	for _, d := range diskIO {
+		totalDiskRead += d.ReadBytes
+		totalDiskWrite += d.WriteBytes
+	}
+	if duration > 0 && !prevUpdate.IsZero() {
+		diskReadSpeed = float64(totalDiskRead-c.prevDiskRead) / 1024 / duration
+		diskWriteSpeed = float64(totalDiskWrite-c.prevDiskWrite) / 1024 / duration
+	}
+	c.prevDiskRead = totalDiskRead
+	c.prevDiskWrite = totalDiskWrite
+
+	c.lastUpdate = now
 
 	usage := 0.0
 	if len(cpuPercent) > 0 {
@@ -108,24 +143,31 @@ func (c *Collector) CollectAll() SystemStats {
 	}
 
 	return SystemStats{
-		CPUTemp:     c.GetCPUTemp(),
-		CPUUsage:    usage,
-		CPUFreq:     c.GetCPUFreq(),
-		Load1:       load1,
-		Load5:       load5,
-		Load15:      load15,
-		MemUsage:    v.UsedPercent,
-		MemSummary:  fmt.Sprintf("%.2f / %.2f GB", float64(v.Used)/1e9, float64(v.Total)/1e9),
-		SwapUsage:   swap.UsedPercent,
-		SwapSummary: fmt.Sprintf("%.2f / %.2f GB", float64(swap.Used)/1e9, float64(swap.Total)/1e9),
-		DiskUsage:   diskStat.UsedPercent,
-		DiskSummary: fmt.Sprintf("%.2f / %.2f GB", float64(diskStat.Used)/1e9, float64(diskStat.Total)/1e9),
-		Uptime:      h.Uptime,
-		OSInfo:      fmt.Sprintf("%s %s", h.Platform, h.PlatformVersion),
-		NetDown:     downSpeed,
-		NetUp:       upSpeed,
-		Procs:       h.Procs,
-		BootTime:    h.BootTime,
-		Connections: connCount,
+		CPUTemp:      c.GetCPUTemp(),
+		CPUUsage:     usage,
+		CPUFreq:      c.GetCPUFreq(),
+		CPUModel:     cpuModel,
+		Load1:        load1,
+		Load5:        load5,
+		Load15:       load15,
+		MemUsage:     v.UsedPercent,
+		MemSummary:   fmt.Sprintf("%.2f / %.2f GB", float64(v.Used)/1e9, float64(v.Total)/1e9),
+		MemAvailable: v.Available,
+		MemCached:    v.Cached,
+		SwapUsage:    swap.UsedPercent,
+		SwapSummary:  fmt.Sprintf("%.2f / %.2f GB", float64(swap.Used)/1e9, float64(swap.Total)/1e9),
+		DiskUsage:    diskStat.UsedPercent,
+		DiskSummary:  fmt.Sprintf("%.2f / %.2f GB", float64(diskStat.Used)/1e9, float64(diskStat.Total)/1e9),
+		DiskRead:     diskReadSpeed,
+		DiskWrite:    diskWriteSpeed,
+		Uptime:       h.Uptime,
+		OSInfo:       fmt.Sprintf("%s %s", h.Platform, h.PlatformVersion),
+		Hostname:     h.Hostname,
+		KernelInfo:   fmt.Sprintf("%s %s", h.KernelVersion, h.KernelArch),
+		NetDown:      downSpeed,
+		NetUp:        upSpeed,
+		Procs:        h.Procs,
+		BootTime:     h.BootTime,
+		Connections:  connCount,
 	}
 }

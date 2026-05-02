@@ -17,10 +17,18 @@
 			return `${mm}月${dd}日 ${hh}:${min}`;
 		},
 
+		formatBytes(bytes) {
+			if (!bytes || bytes === 0) return '0 B';
+			const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+			const i = Math.floor(Math.log(bytes) / Math.log(1024));
+			return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+		},
+
 		updateAll(data) {
 			// CPU
 			document.getElementById('cpu-usage').innerText = data.cpu_usage.toFixed(1);
 			document.getElementById('cpu-bar').style.width = data.cpu_usage + '%';
+			document.getElementById('cpu-model').innerText = data.cpu_model || '--';
 			document.getElementById('cpu-freq').innerText = Math.round(data.cpu_freq);
 			const tempEl = document.getElementById('cpu-temp');
 			tempEl.innerText = data.cpu_temp;
@@ -35,6 +43,8 @@
 			document.getElementById('mem-usage').innerText = data.mem_usage.toFixed(1);
 			document.getElementById('mem-bar').style.width = data.mem_usage + '%';
 			document.getElementById('mem-summary').innerText = data.mem_summary;
+			document.getElementById('mem-avail').innerText = this.formatBytes(data.mem_available);
+			document.getElementById('mem-cached').innerText = this.formatBytes(data.mem_cached);
 
 			// Swap
 			document.getElementById('swap-usage').innerText = (data.swap_usage || 0).toFixed(1);
@@ -50,9 +60,13 @@
 			document.getElementById('disk-usage').innerText = (data.disk_usage || 0).toFixed(1);
 			document.getElementById('disk-bar').style.width = (data.disk_usage || 0) + '%';
 			document.getElementById('disk-summary').innerText = data.disk_summary || '0 / 0 GB';
+			document.getElementById('disk-read').innerText = (data.disk_read || 0).toFixed(1);
+			document.getElementById('disk-write').innerText = (data.disk_write || 0).toFixed(1);
 
 			// System
+			document.getElementById('sys-hostname').innerText = data.hostname || '--';
 			document.getElementById('sys-os').innerText = data.os_info;
+			document.getElementById('sys-kernel').innerText = data.kernel_info || '--';
 			document.getElementById('sys-uptime').innerText = this.formatUptime(data.uptime);
 			document.getElementById('sys-procs').innerText = data.procs || 0;
 			document.getElementById('sys-boot').innerText = this.formatBootTime(data.boot_time);
