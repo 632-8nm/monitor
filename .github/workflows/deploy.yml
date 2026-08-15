@@ -1,6 +1,6 @@
 name: Build & Deploy
 
-# push 到 main 时云端交叉编译并 SSH 部署到板端
+# push 到 main 时云端交叉编译并 SSH 部署到板端（经 Cloudflare Tunnel）
 on:
   push:
     branches: [main]
@@ -43,33 +43,60 @@ jobs:
           name: monitor_server
           path: .
 
-      - name: Copy binary to board
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ssh.632-8nm.cloud
-          username: orangepi
-          key: ${{ secrets.BOARD_SSH_KEY }}
-          port: 22
-          source: monitor_server
-          target: /home/orangepi/actions-runner/_work/orangepi-monitor/orangepi-monitor/
+      - name: Install cloudflared
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+          chmod +x /usr/local/bin/cloudflared
+          cloudflared --version
 
-      - name: Restart monitor service on board
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ssh.632-8nm.cloud
-          username: orangepi
-          key: ${{ secrets.BOARD_SSH_KEY }}
-          port: 22
-          timeout: 30s
-          script: |
+      - name: Write board SSH key
+        run: |
+          echo "$BOARD_SSH_KEY" > /tmp/board_key
+          chmod 600 /tmp/board_key
+        env:
+          BOARD_SSH_KEY: ${{ secrets.BOARD_SSH_KEY }}
+
+      - name: Copy binary and restart via Cloudflare Tunnel SSH
+        run: |
+          set -e
+          CF_ID="${CLOUDFLARED_TOKEN%%:*}"
+          CF_SECRET="${CLOUDFLARED_TOKEN#*:}"
+
+          # 启动 cloudflared access tcp 转发
+          cloudflared access tcp \
+            --hostname ssh.632-8nm.cloud \
+            --url localhost:2222 \
+            --service-token-id "$CF_ID" \
+            --service-token-secret "$CF_SECRET" \
+            --log-level warn > /tmp/cf-tcp.log 2>&1 &
+          CF_PID=$!
+          trap "kill $CF_PID 2>/dev/null || true" EXIT
+
+          # 等待转发就绪
+          for i in $(seq 1 15); do
+            ss -tln 2>/dev/null | grep -q 2222 && break
+            sleep 1
+          done
+
+          DEPLOY_DIR=/home/orangepi/actions-runner/_work/orangepi-monitor/orangepi-monitor
+
+          echo "==> 传输 monitor_server 到板子"
+          scp -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 -P 2222 monitor_server orangepi@127.0.0.1:$DEPLOY_DIR/
+
+          echo "==> SSH 重启 monitor 服务"
+          ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
             set -e
-            DEPLOY_DIR=/home/orangepi/actions-runner/_work/orangepi-monitor/orangepi-monitor
-            echo "==> 停止 monitor 服务"
+            echo '==> 停止 monitor 服务'
             sudo systemctl stop monitor || true
             sudo fuser -k 8080/tcp || true
-            echo "==> 替换二进制"
+            echo '==> 替换二进制'
             chmod +x $DEPLOY_DIR/monitor_server
             sudo systemctl start monitor
             sleep 2
-            echo "==> 服务状态: $(systemctl is-active monitor)"
+            echo '==> 服务状态: '\$(systemctl is-active monitor)
             sudo systemctl is-active monitor
+          "
+        env:
+          CLOUDFLARED_TOKEN: ${{ secrets.CLOUDFLARED_TOKEN }}
