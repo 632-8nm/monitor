@@ -1,101 +1,152 @@
-﻿# 閮ㄧ讲鏋舵瀯涓庢惌寤烘祦绋嬶紙orangepi-monitor锛?
-> 鏈枃妗ｈ褰曟湰椤圭洰浠庨浂鎼缓鐨勫畬鏁存祦绋嬩笌褰撳墠鐢熶骇鏋舵瀯锛屼緵缁存姢鑰呭弬鑰冦€?> 鏁忔劅淇℃伅涓€寰嬩娇鐢ㄥ崰浣嶇锛屼笉鍖呭惈鐪熷疄 token / 瀵嗙爜銆?
-## 1. 鏁翠綋鏋舵瀯
+# 部署架构与搭建流程（orangepi-monitor）
+
+> 本文档记录本项目从零搭建的完整流程与当前生产架构，供维护者参考。
+> 敏感信息一律使用占位符，不包含真实 token / 密码。
+
+## 1. 整体架构
 
 ```
-寮€鍙戣€呮湰鍦?(Windows)
-   鈹? 鍐欎唬鐮?鈫?go vet / go test锛堟湰鍦拌嚜娴嬶級
-   鈹? git commit + push
-   鈻?GitHub (orangepi-monitor 浠撳簱)
-   鈹? 瑙﹀彂 GitHub Actions锛坵orkflow: deploy.yml锛?   鈻?CI/CD锛圙itHub 浜戠 runner锛寀buntu-latest锛?   鈹? 鈶?浜ゅ弶缂栬瘧 arm64 浜岃繘鍒讹紙CGO_ENABLED=0 GOOS=linux GOARCH=arm64锛?   鈹? 鈶?閫氳繃 Cloudflare Tunnel (ssh.<your-domain>) SSH 鍒版澘瀛?   鈻?鏉垮瓙锛圤range Pi Zero 3锛?   鈹? 鍋滄湇鍔?鈫?scp 浜岃繘鍒?+ 鍓嶇 鈫?閲嶅惎
-   鈻?/opt/orangepi-monitor/  锛坰ystemd: monitor锛岀洃鍚?:8080锛?```
+开发者本地 (Windows)
+   │  写代码 → go vet / go test（本地自测）
+   │  git commit + push
+   ▼
+GitHub (orangepi-monitor 仓库)
+   │  触发 GitHub Actions（workflow: deploy.yml）
+   ▼
+CI/CD（GitHub 云端 runner，ubuntu-latest）
+   │  ① 交叉编译 arm64 二进制（CGO_ENABLED=0 GOOS=linux GOARCH=arm64）
+   │  ② 通过 Cloudflare Tunnel (ssh.<your-domain>) SSH 到板子
+   ▼
+板子（Orange Pi Zero 3）
+   │  停服务 → scp 二进制 + 前端 → 重启
+   ▼
+/opt/orangepi-monitor/  （systemd: monitor，监听 :8080）
+```
 
-> 娉細monitor 鐨勫墠绔紙index.html + static/锛夋槸鐙珛鏂囦欢锛堟湭 embed 杩涗簩杩涘埗锛夛紝
-> 閮ㄧ讲鏃堕殢浜岃繘鍒朵竴璧蜂紶杈撳埌 /opt/orangepi-monitor/銆?
-## 2. 鐢熶骇閮ㄧ讲浣嶇疆
+> 注：monitor 的前端（index.html + static/）是独立文件（未 embed 进二进制），
+> 部署时随二进制一起传输到 /opt/orangepi-monitor/。
 
-| 椤?| 鍊?|
+## 2. 生产部署位置
+
+| 项 | 值 |
 |---|---|
-| 閮ㄧ讲鐩綍 | `/opt/orangepi-monitor/` |
-| 浜岃繘鍒?| `/opt/orangepi-monitor/monitor_server` |
-| 鍓嶇 | `/opt/orangepi-monitor/index.html` + `static/` |
-| systemd 鏈嶅姟 | `monitor.service` |
-| 鐩戝惉绔彛 | `8080` |
-| 鍏綉鍏ュ彛 | `orangepi-monitor.<your-domain>`锛圕loudflare 闅ч亾 鈫?http://localhost:8080锛?|
-| CI 閮ㄧ讲鍏ュ彛 | `ssh.<your-domain>`锛圕loudflare 闅ч亾 鈫?ssh://localhost:22锛?|
+| 部署目录 | `/opt/orangepi-monitor/` |
+| 二进制 | `/opt/orangepi-monitor/monitor_server` |
+| 前端 | `/opt/orangepi-monitor/index.html` + `static/` |
+| systemd 服务 | `monitor.service` |
+| 监听端口 | `8080` |
+| 公网入口 | `orangepi-monitor.<your-domain>`（Cloudflare 隧道 → http://localhost:8080） |
+| CI 部署入口 | `ssh.<your-domain>`（Cloudflare 隧道 → ssh://localhost:22） |
 
-## 3. 鏉垮瓙渚х粍浠?
-| 缁勪欢 | 璇存槑 | 鐘舵€?|
+## 3. 板子侧组件
+
+| 组件 | 说明 | 状态 |
 |---|---|---|
-| `cloudflared` | Cloudflare 闅ч亾瀹㈡埛绔紙token 妯″紡锛?| systemd 鏈嶅姟锛屽父椹?|
-| `/opt/orangepi-monitor/` | 鐢熶骇閮ㄧ讲鐩綍 | 鐢?CI 鏇存柊 |
-| `monitor.service` | systemd 鍗曞厓锛屾寚鍚?`/opt/orangepi-monitor/monitor_server` | 甯搁┗ |
+| `cloudflared` | Cloudflare 隧道客户端（token 模式） | systemd 服务，常驻 |
+| `/opt/orangepi-monitor/` | 生产部署目录 | 由 CI 更新 |
+| `monitor.service` | systemd 单元，指向 `/opt/orangepi-monitor/monitor_server` | 常驻 |
 
-## 4. Cloudflare 渚ч厤缃?
-| 椤?| 閰嶇疆 | 鐢ㄩ€?|
+## 4. Cloudflare 侧配置
+
+| 项 | 配置 | 用途 |
 |---|---|---|
-| 鍩熷悕 | `<your-domain>` | 鎵樼鍦?Cloudflare |
-| 闅ч亾 | token 妯″紡锛坱unnel run --token锛?| 鏉垮瓙涓诲姩杩?Cloudflare |
-| Public Hostname | `orangepi-monitor.<your-domain>` 鈫?`http://localhost:8080` | 鍏綉璁块棶 Web |
-| Public Hostname | `ssh.<your-domain>` 鈫?`ssh://localhost:22` | CI/CD 閮ㄧ讲 SSH 鍏ュ彛锛堜袱椤圭洰鍏辩敤锛?|
-| Service Token | 鍦?Access 鈫?Service Auth 鍒涘缓 | CI 璁よ瘉锛堟牸寮?ID:SECRET锛?|
-| Access 绛栫暐 | `ci-deploy`锛圫ervice Auth + token锛?| 鏀捐 CI 鐨?cloudflared 杩炴帴 |
+| 域名 | `<your-domain>` | 托管在 Cloudflare |
+| 隧道 | token 模式（tunnel run --token） | 板子主动连 Cloudflare |
+| Public Hostname | `orangepi-monitor.<your-domain>` → `http://localhost:8080` | 公网访问 Web |
+| Public Hostname | `ssh.<your-domain>` → `ssh://localhost:22` | CI/CD 部署 SSH 入口（两项目共用） |
+| Service Token | 在 Access → Service Auth 创建 | CI 认证（格式 ID:SECRET） |
+| Access 策略 | `ci-deploy`（Service Auth + token） | 放行 CI 的 cloudflared 连接 |
 
-## 5. GitHub 渚ч厤缃?
-| 椤?| 鍊?| 璇存槑 |
+## 5. GitHub 侧配置
+
+| 项 | 值 | 说明 |
 |---|---|---|
-| 浠撳簱 | `632-8nm/orangepi-monitor` | 鈥?|
-| Workflow | `.github/workflows/deploy.yml` | push main 瑙﹀彂锛屼簯绔紪璇?+ 閮ㄧ讲 |
-| Secret: `BOARD_SSH_KEY` | 鏉垮瓙 `~/.ssh/deploy` 绉侀挜 | 浜戠 SSH 鐧诲綍鏉垮瓙锛堜袱椤圭洰鍏辩敤锛?|
-| Secret: `CLOUDFLARED_TOKEN` | `ClientID:ClientSecret` | cloudflared access 璁よ瘉锛堜袱椤圭洰鍏辩敤锛?|
+| 仓库 | `<your-org>/orangepi-monitor` | — |
+| Workflow | `.github/workflows/deploy.yml` | push main 触发，云端编译 + 部署 |
+| Secret: `BOARD_SSH_KEY` | 板子 `~/.ssh/deploy` 私钥 | 云端 SSH 登录板子（两项目共用） |
+| Secret: `CLOUDFLARED_TOKEN` | `ClientID:ClientSecret` | cloudflared access 认证（两项目共用） |
 
-## 6. 浠庨浂鎼缓姝ラ
+## 6. 从零搭建步骤
 
-### 6.1 鏉垮瓙鍑嗗
+### 6.1 板子准备
 ```bash
-# 瀹夎 cloudflared
+# 安装 cloudflared
 curl -L --output /usr/local/bin/cloudflared \
   https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64
 chmod +x /usr/local/bin/cloudflared
 
-# 閰嶇疆鍏嶅瘑 sudo锛堜粎 systemctl/journalctl/tee锛屼緵 CI 浣跨敤锛?sudo tee /etc/sudoers.d/orangepi-systemd <<'EOF'
+# 配置免密 sudo（仅 systemctl/journalctl/tee，供 CI 使用）
+sudo tee /etc/sudoers.d/orangepi-systemd <<'EOF'
 orangepi ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /bin/systemctl, /usr/bin/journalctl, /usr/bin/tee
 EOF
 sudo chmod 440 /etc/sudoers.d/orangepi-systemd
 
-# 鐢熸垚 CI 閮ㄧ讲瀵嗛挜
+# 生成 CI 部署密钥
 ssh-keygen -t ed25519 -N "" -f ~/.ssh/deploy
 cat ~/.ssh/deploy.pub >> ~/.ssh/authorized_keys
 
-# 鍒涘缓鐢熶骇閮ㄧ讲鐩綍
+# 创建生产部署目录
 sudo mkdir -p /opt/orangepi-monitor
 sudo chown orangepi:orangepi /opt/orangepi-monitor
+
+# 配置 systemd 服务（日志路径指向 /opt，勿指向已删除的 actions-runner 目录）
+sudo tee /etc/systemd/system/monitor.service <<'EOF'
+[Unit]
+Description=Orange Pi System Monitor Service
+After=network.target
+
+[Service]
+Type=simple
+User=orangepi
+WorkingDirectory=/opt/orangepi-monitor
+EnvironmentFile=-/etc/default/monitor
+ExecStart=/opt/orangepi-monitor/monitor_server
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/orangepi-monitor/service.log
+StandardError=append:/opt/orangepi-monitor/service.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now monitor
 ```
 
-### 6.2 Cloudflare 閰嶇疆
-1. 鍩熷悕鎵樼鍦?Cloudflare锛坄<your-domain>`锛?2. 鏉垮瓙瀹夎 cloudflared锛岀敤 token 鎺ュ叆闅ч亾
-3. 鍔?Public Hostname锛?   - `orangepi-monitor.<your-domain>` 鈫?`http://localhost:8080`
-   - `ssh.<your-domain>` 鈫?`ssh://localhost:22`锛堜袱椤圭洰鍏辩敤锛?4. Access 鈫?Service Auth 鍒涘缓 Service Token锛堣涓?Client ID/Secret锛?5. Access 鈫?涓?`ssh.<your-domain>` 閰嶇疆 `ci-deploy` 绛栫暐锛圫ervice Auth锛?
-### 6.3 GitHub 閰嶇疆
-1. 浠撳簱鍔犱袱涓?Secret锛堜笌 remote-wakeup 鍏辩敤鍚屼竴浠藉€硷級锛?   - `BOARD_SSH_KEY` = 鏉垮瓙 `~/.ssh/deploy` 绉侀挜鍏ㄦ枃
+### 6.2 Cloudflare 配置
+1. 域名托管在 Cloudflare（`<your-domain>`）
+2. 板子安装 cloudflared，用 token 接入隧道
+3. 加 Public Hostname：
+   - `orangepi-monitor.<your-domain>` → `http://localhost:8080`
+   - `ssh.<your-domain>` → `ssh://localhost:22`（两项目共用）
+4. Access → Service Auth 创建 Service Token（记下 Client ID/Secret）
+5. Access → 为 `ssh.<your-domain>` 配置 `ci-deploy` 策略（Service Auth）
+
+### 6.3 GitHub 配置
+1. 仓库加两个 Secret（与 remote-wakeup 共用同一份值）：
+   - `BOARD_SSH_KEY` = 板子 `~/.ssh/deploy` 私钥全文
    - `CLOUDFLARED_TOKEN` = `ClientID:ClientSecret`
-2. 鎺ㄩ€?`.github/workflows/deploy.yml`锛坧ush main 鑷姩閮ㄧ讲锛?
-### 6.4 楠岃瘉
-鎺ㄤ竴娆′唬鐮佸埌 main锛岃瀵?GitHub Actions 鐨?Build & Deploy 鏄惁 success锛?鏉垮瓙 `/opt/orangepi-monitor/monitor_server` 鏄惁鏇存柊銆佹湇鍔℃槸鍚﹂噸鍚€?
-## 7. 鏃ュ父缁存姢
+2. 推送 `.github/workflows/deploy.yml`（push main 自动部署）
+
+### 6.4 验证
+推一次代码到 main，观察 GitHub Actions 的 Build & Deploy 是否 success，
+板子 `/opt/orangepi-monitor/monitor_server` 是否更新、服务是否重启。
+
+## 7. 日常维护
 
 ```bash
-# 鏌ョ湅鏈嶅姟
+# 查看服务
 systemctl status monitor
-# 鏌ョ湅鏃ュ織
+# 查看日志
 journalctl -u monitor -f
-# 鎵嬪姩閲嶅惎
+# 手动重启
 sudo systemctl restart monitor
-# 鏀归厤缃紙鐜鍙橀噺锛?sudo nano /etc/default/monitor && sudo systemctl restart monitor
+# 改配置（环境变量）
+sudo nano /etc/default/monitor && sudo systemctl restart monitor
 ```
 
-## 8. 鍥炴粴
+## 8. 回滚
 
-CI 閮ㄧ讲鐨勬槸浜戠缂栬瘧鐨勫浐瀹氱増鏈簩杩涘埗銆傚洖婊氭柟寮忥細
-- 鐢?`git revert` 鍥為€€浠ｇ爜鍚?push锛堣Е鍙戦噸鏂伴儴缃叉棫鐗堬級
-- 鎴栨墜鍔ㄦ浛鎹?`/opt/orangepi-monitor/monitor_server` 涓轰笂涓€鐗堜簩杩涘埗骞堕噸鍚?
+CI 部署的是云端编译的固定版本二进制。回滚方式：
+- 用 `git revert` 回退代码后 push（触发重新部署旧版）
+- 或手动替换 `/opt/orangepi-monitor/monitor_server` 为上一版二进制并重启
