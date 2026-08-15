@@ -25,11 +25,14 @@ jobs:
           file monitor_server
           chmod +x monitor_server
 
-      - name: Upload binary
+      - name: Upload build artifacts (binary + frontend)
         uses: actions/upload-artifact@v4
         with:
-          name: monitor_server
-          path: monitor_server
+          name: monitor_deploy
+          path: |
+            monitor_server
+            index.html
+            static/
           retention-days: 1
 
   deploy:
@@ -37,10 +40,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download binary
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: monitor_server
+          name: monitor_deploy
           path: .
 
       - name: Install cloudflared
@@ -89,7 +92,7 @@ jobs:
             exit 1
           fi
 
-          DEPLOY_DIR=/home/orangepi/actions-runner/_work/orangepi-monitor/orangepi-monitor
+          DEPLOY_DIR=/opt/orangepi-monitor
 
           echo "==> 先停止 monitor 服务（释放二进制占用）"
           ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
@@ -100,9 +103,16 @@ jobs:
             echo 'monitor 已停止'
           "
 
-          echo "==> 传输 monitor_server 到板子"
+          echo "==> 传输部署文件（二进制 + 前端）到板子"
+          # 先确保部署目录存在
+          ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
+            mkdir -p $DEPLOY_DIR/static
+          "
           scp -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=15 -P 2222 monitor_server orangepi@127.0.0.1:$DEPLOY_DIR/
+              -o ConnectTimeout=15 -P 2222 monitor_server index.html orangepi@127.0.0.1:$DEPLOY_DIR/
+          scp -r -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 -P 2222 static/ orangepi@127.0.0.1:$DEPLOY_DIR/
 
           echo "==> SSH 启动 monitor 服务"
           ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
