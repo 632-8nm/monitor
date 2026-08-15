@@ -1,8 +1,10 @@
-﻿# Orange Pi Zero3 系统监控站
+# Orange Pi Zero3 系统监控站
 
 本仓库用于管理 Orange Pi Zero3 的系统监控程序，通过 GitHub Actions 实现代码的自动编译与持续部署。
 
 **🌐 监控演示：** [https://orangepi-monitor.your-domain.example/](https://orangepi-monitor.your-domain.example/)
+
+> 📦 **部署架构与从零搭建流程见 [DEPLOYMENT.md](DEPLOYMENT.md)**（CI/CD、Cloudflare 隧道、/opt 部署、密钥配置）
 
 ## 项目功能
 
