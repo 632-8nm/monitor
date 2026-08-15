@@ -72,25 +72,42 @@ jobs:
           CF_PID=$!
           trap "kill $CF_PID 2>/dev/null || true" EXIT
 
-          # 等待转发就绪
+          # 等待转发就绪（SSH 重试，不依赖 ss）
+          echo "==> 等待隧道就绪"
+          SSH_OK=0
           for i in $(seq 1 15); do
-            ss -tln 2>/dev/null | grep -q 2222 && break
+            if ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+                -o ConnectTimeout=10 -p 2222 orangepi@127.0.0.1 'true' 2>/dev/null; then
+              SSH_OK=1
+              break
+            fi
             sleep 1
           done
+          if [ "$SSH_OK" != "1" ]; then
+            echo "错误: 无法通过隧道连接板子，cloudflared 日志:"
+            cat /tmp/cf-tcp.log
+            exit 1
+          fi
 
           DEPLOY_DIR=/home/orangepi/actions-runner/_work/orangepi-monitor/orangepi-monitor
+
+          echo "==> 先停止 monitor 服务（释放二进制占用）"
+          ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
+            set -e
+            sudo systemctl stop monitor || true
+            sudo fuser -k 8080/tcp || true
+            echo 'monitor 已停止'
+          "
 
           echo "==> 传输 monitor_server 到板子"
           scp -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=15 -P 2222 monitor_server orangepi@127.0.0.1:$DEPLOY_DIR/
 
-          echo "==> SSH 重启 monitor 服务"
+          echo "==> SSH 启动 monitor 服务"
           ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
             set -e
-            echo '==> 停止 monitor 服务'
-            sudo systemctl stop monitor || true
-            sudo fuser -k 8080/tcp || true
             echo '==> 替换二进制'
             chmod +x $DEPLOY_DIR/monitor_server
             sudo systemctl start monitor
