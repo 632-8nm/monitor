@@ -46,7 +46,7 @@ jobs:
       - name: Copy binary to board
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: <board-lan-ip>
+          host: ssh.632-8nm.cloud
           username: orangepi
           key: ${{ secrets.BOARD_SSH_KEY }}
           port: 22
@@ -56,7 +56,7 @@ jobs:
       - name: Restart monitor service on board
         uses: appleboy/ssh-action@v1
         with:
-          host: <board-lan-ip>
+          host: ssh.632-8nm.cloud
           username: orangepi
           key: ${{ secrets.BOARD_SSH_KEY }}
           port: 22
