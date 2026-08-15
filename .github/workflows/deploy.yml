@@ -1,0 +1,75 @@
+name: Build & Deploy
+
+# push 到 main 时云端交叉编译并 SSH 部署到板端
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build arm64 binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Cross-compile for arm64
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o monitor_server .
+          file monitor_server
+          chmod +x monitor_server
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor_server
+          path: monitor_server
+          retention-days: 1
+
+  deploy:
+    name: Deploy to board
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: monitor_server
+          path: .
+
+      - name: Copy binary to board
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: <board-lan-ip>
+          username: orangepi
+          key: ${{ secrets.BOARD_SSH_KEY }}
+          port: 22
+          source: monitor_server
+          target: /home/orangepi/actions-runner/_work/orangepi-monitor/orangepi-monitor/
+
+      - name: Restart monitor service on board
+        uses: appleboy/ssh-action@v1
+        with:
+          host: <board-lan-ip>
+          username: orangepi
+          key: ${{ secrets.BOARD_SSH_KEY }}
+          port: 22
+          timeout: 30s
+          script: |
+            set -e
+            DEPLOY_DIR=/home/orangepi/actions-runner/_work/orangepi-monitor/orangepi-monitor
+            echo "==> 停止 monitor 服务"
+            sudo systemctl stop monitor || true
+            sudo fuser -k 8080/tcp || true
+            echo "==> 替换二进制"
+            chmod +x $DEPLOY_DIR/monitor_server
+            sudo systemctl start monitor
+            sleep 2
+            echo "==> 服务状态: $(systemctl is-active monitor)"
+            sudo systemctl is-active monitor
