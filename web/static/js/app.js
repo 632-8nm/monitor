@@ -266,8 +266,25 @@
 		}
 	}
 
+	// ===== 系统信息（静态，仅加载时拉取一次） =====
+	async function fetchSystem() {
+		try {
+			const response = await fetch('/api/system');
+			if (!response.ok) return;
+			const s = await response.json();
+			document.getElementById('sys-os').innerText = s.os || '--';
+			document.getElementById('sys-kernel').innerText = s.kernel || '--';
+			document.getElementById('sys-board').innerText = s.board || '--';
+			document.getElementById('sys-cpu').innerText = `${s.cpu || '--'} · ${s.cores} 核`;
+			document.getElementById('sys-version').innerText = s.version || '--';
+		} catch (error) {
+			console.error('Failed to fetch system info:', error);
+		}
+	}
+
 	document.addEventListener('DOMContentLoaded', () => {
 		fetchStats();
+		fetchSystem();
 		Trends.wireControls();
 		fetchHistory();
 		setInterval(fetchHistory, 60000);
