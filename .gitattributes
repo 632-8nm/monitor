@@ -1,0 +1,14 @@
+# Normalize line endings and text handling for the whole repository.
+# All text files are UTF-8 (no BOM) with LF endings, so bash scripts and
+# shell snippets keep working on any platform.
+* text=auto eol=lf
+
+# Explicit rules for the files where LF is critical
+*.sh text eol=lf
+*.go text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.service text eol=lf

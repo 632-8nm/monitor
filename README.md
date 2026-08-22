@@ -1,67 +1,79 @@
-# Orange Pi Zero3 系统监控站
+# Orange Pi Zero3 System Monitor
 
-本仓库用于管理 Orange Pi Zero3 的系统监控程序，通过 GitHub Actions 实现代码的自动编译与持续部署。
+This repository manages the system monitor program for an Orange Pi Zero3, with automated build and continuous deployment powered by GitHub Actions.
 
-**🌐 监控演示：** [https://orangepi-monitor.your-domain.example/](https://orangepi-monitor.your-domain.example/)
+**🌐 Live demo:** [https://orangepi-monitor.your-domain.example/](https://orangepi-monitor.your-domain.example/)
 
-> 📦 **部署架构与从零搭建流程见 [DEPLOYMENT.md](DEPLOYMENT.md)**（CI/CD、Cloudflare 隧道、/opt 部署、密钥配置）
+> 📦 **For the deployment architecture and setup-from-scratch guide, see [DEPLOYMENT.md](DEPLOYMENT.md)** (CI/CD, Cloudflare Tunnel, /opt deployment, secrets)
 
-## 项目功能
+## Features
 
-* **实时监控**：网页端动态展示 CPU 负载、频率、温度，以及内存占用、系统运行时间和实时网速。
-* **全自动部署**：基于 GitHub Actions Runner，本地 `git push` 后，板子会自动完成代码拉取、编译并重启服务。
-* **自托管前端**：前端页面直接托管在开发板上，通过同一个后端服务提供，无需额外的静态托管服务。
-* **掉电自愈**：监控程序与内网穿透服务均注册为 Systemd 服务，支持开机自启。
+* **Real-time monitoring**: the web dashboard shows CPU load, frequency and temperature, memory usage, uptime and live network speeds.
+* **Fully automated deployment**: GitHub Actions cross-compiles the arm64 binary in the cloud and deploys it to the board over a Cloudflare Tunnel — just push to `main`.
+* **Self-hosted frontend**: pages are served directly by the Go backend, no separate static hosting required.
+* **Power-loss resilient**: both the monitor and the tunnel client run as systemd services with auto-start on boot.
 
-## 核心架构
+## Architecture
 
-* **后端**：Go (Golang) + `gopsutil`（同时提供 API 和前端静态文件）
-* **前端**：HTML5 / CSS3 / JavaScript (Vanilla JS)
-* **服务管理**：Systemd (服务名：`monitor`)
-* **网络穿透**：Cloudflare Tunnel（自定义域名）
-* **域名**：your-domain.example
+* **Backend**: Go (Golang) + `gopsutil` (serves both the API and the static frontend)
+* **Frontend**: HTML5 / CSS3 / vanilla JavaScript
+* **Service management**: systemd (service name: `monitor`)
+* **Tunneling**: Cloudflare Tunnel (custom domain)
+* **Domain**: your-domain.example
 
-## 运维命令
+## Operations
 
-* **查看监控服务状态**：`sudo systemctl status monitor`
-* **查看运行日志**：`sudo journalctl -u monitor -f`
-* **重启监控服务**：`sudo systemctl restart monitor`
-* **查看隧道服务状态**：`sudo systemctl status cloudflared`
-* **重启隧道服务**：`sudo systemctl restart cloudflared`
-* **初始化服务**：`./setup_monitor.sh`（仅在环境变更或初次部署时执行）
+* **Check monitor status**: `sudo systemctl status monitor`
+* **Follow logs**: `sudo journalctl -u monitor -f`
+* **Restart the monitor**: `sudo systemctl restart monitor`
+* **Check tunnel status**: `sudo systemctl status cloudflared`
+* **Restart the tunnel**: `sudo systemctl restart cloudflared`
+* **Install/upgrade from source**: `./install.sh` (builds locally and installs into `/opt/orangepi-monitor`; override with `INSTALL_DIR`; re-running performs an upgrade)
+* **Uninstall**: `./uninstall.sh` (reverts everything `install.sh` did; does not touch the cloudflared tunnel)
 
-## 重新部署
+## Redeployment
 
-当代码更新推送到 GitHub 后，GitHub Actions 会自动：
-1. 在 runner 上编译 Go 程序
-2. 停止旧服务
-3. 用新程序替换
-4. 重启服务
+Every push to GitHub `main` triggers GitHub Actions to:
+1. Cross-compile the Go binary on a cloud runner
+2. Stop the service on the board
+3. Replace the binary and frontend files
+4. Restart the service
 
-无需手动干预。
+No manual intervention required.
 
-## 服务配置
+## Install from source (other devices)
 
-* **监控服务**：`/etc/systemd/system/monitor.service`
-* **隧道服务**：`/etc/systemd/system/cloudflared.service`
-* **服务端口**：8080
-* **访问域名**：https://orangepi-monitor.your-domain.example/
+To self-host on another board without this repository's CI/CD:
 
-## 安全配置（建议在生产启用）
+```bash
+git clone <this repo> && cd orangepi-monitor
+./install.sh
+```
 
-可通过环境变量开启基础安全能力：
+The script builds locally, installs into `/opt/orangepi-monitor`, registers the systemd service (`monitor`) and enables it on boot. By default it only listens on `127.0.0.1:8080`. For security options (Basic Auth / CORS) see the "Security" section below. To remove everything, run `./uninstall.sh`.
 
-* `MONITOR_LISTEN_ADDR`：监听地址（默认 `127.0.0.1:8080`，建议保持默认）
-* `MONITOR_BASIC_AUTH_USER`：Basic Auth 用户名
-* `MONITOR_BASIC_AUTH_PASS`：Basic Auth 密码
-* `MONITOR_ALLOWED_ORIGINS`：CORS 白名单，逗号分隔（例如 `https://orangepi-monitor.your-domain.example/`）
+## Service configuration
 
-当未设置 `MONITOR_BASIC_AUTH_USER/PASS` 时，服务会以兼容模式运行（无鉴权）。
-当未设置 `MONITOR_ALLOWED_ORIGINS` 时，服务会以宽松 CORS 模式运行。
+* **Monitor service**: `/etc/systemd/system/monitor.service`
+* **Tunnel service**: `/etc/systemd/system/cloudflared.service`
+* **Port**: 8080
+* **Public URL**: https://orangepi-monitor.your-domain.example/
 
-## 技术亮点
+## Security (recommended for production)
 
-1. **前后端一体化**：Go 后端同时提供 API 和静态文件服务，简化架构
-2. **Cloudflare Tunnel**：无需公网 IP，通过 Cloudflare 实现内网穿透
-3. **自定义域名**：使用自有域名 your-domain.example，提供稳定的访问入口
-4. **Systemd 管理**：服务稳定可靠，支持开机自启和自动恢复
+Basic security capabilities can be enabled via environment variables:
+
+* `MONITOR_LISTEN_ADDR`: listen address (default `127.0.0.1:8080`, keeping the default is recommended)
+* `MONITOR_BASIC_AUTH_USER`: Basic Auth username
+* `MONITOR_BASIC_AUTH_PASS`: Basic Auth password
+* `MONITOR_ALLOWED_ORIGINS`: CORS allowlist, comma-separated (e.g. `https://orangepi-monitor.your-domain.example/`)
+
+When `MONITOR_BASIC_AUTH_USER/PASS` are not set, the server runs in compatibility mode (no authentication).
+When `MONITOR_ALLOWED_ORIGINS` is not set, the server runs with permissive CORS.
+
+## Highlights
+
+1. **All-in-one backend**: a single Go binary serves both the API and static files, keeping the architecture simple
+2. **Cloudflare Tunnel**: no public IP needed — the board reaches the internet through Cloudflare
+3. **Custom domain**: a stable entry point on the your-domain.example domain
+4. **systemd managed**: reliable services with auto-start on boot and automatic recovery

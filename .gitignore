@@ -1,4 +1,4 @@
-﻿monitor_server
+monitor_server
 *.exe
 .vscode/
 *.swp

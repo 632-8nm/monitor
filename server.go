@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"encoding/json"
@@ -10,11 +10,11 @@ import (
 )
 
 type Server struct {
-	collector       *Collector
-	basicAuthUser   string
-	basicAuthPass   string
-	allowedOrigins  map[string]struct{}
-	corsAllowAll    bool
+	collector      *Collector
+	basicAuthUser  string
+	basicAuthPass  string
+	allowedOrigins map[string]struct{}
+	corsAllowAll   bool
 }
 
 func NewServer() *Server {
@@ -64,7 +64,7 @@ func (s *Server) isAuthorized(r *http.Request) bool {
 	return ok && user == s.basicAuthUser && pass == s.basicAuthPass
 }
 
-// StatsHandler 处理 API 请求
+// StatsHandler serves API requests
 func (s *Server) StatsHandler(w http.ResponseWriter, r *http.Request) {
 	s.applyCORS(w, r)
 	if r.Method == http.MethodOptions {
@@ -80,7 +80,7 @@ func (s *Server) StatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 
-	stats := s.collector.CollectAll()
+	stats := s.collector.Snapshot()
 	json.NewEncoder(w).Encode(stats)
 }
 
@@ -108,23 +108,26 @@ func (s *Server) Start(addr string) {
 	fs := &nocacheFS{http.FileServer(http.Dir("static"))}
 	mux.Handle("/static/", s.authMiddleware(http.StripPrefix("/static/", fs)))
 
-	// 首页路由：当直接访问根目录时，返回 index.html
+	// Root route: serve index.html for direct visits to /
 	mux.Handle("/", s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		http.ServeFile(w, r, "index.html")
 	})))
 
-	// API 路由
+	// API route
 	mux.HandleFunc("/api/stats", s.StatsHandler)
 
-	fmt.Printf("[%s] 🚀 监控服务启动在地址 %s\n", time.Now().Format("15:04:05"), addr)
+	// Start fixed-period background collection; the API only reads snapshots
+	s.collector.Start()
+
+	fmt.Printf("[%s] 🚀 Monitor server listening on %s\n", time.Now().Format("15:04:05"), addr)
 	if s.basicAuthUser == "" || s.basicAuthPass == "" {
-		fmt.Println("⚠️ 未配置 MONITOR_BASIC_AUTH_USER/PASS，当前为无鉴权模式")
+		fmt.Println("⚠️ MONITOR_BASIC_AUTH_USER/PASS not set — running without authentication")
 	}
 	if s.corsAllowAll {
-		fmt.Println("⚠️ 未配置 MONITOR_ALLOWED_ORIGINS，当前为宽松 CORS 模式")
+		fmt.Println("⚠️ MONITOR_ALLOWED_ORIGINS not set — running with permissive CORS")
 	}
 	if err := http.ListenAndServe(addr, mux); err != nil {
-		fmt.Printf("❌ 启动失败: %v\n", err)
+		fmt.Printf("❌ Failed to start: %v\n", err)
 	}
 }

@@ -5,14 +5,21 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
 )
+
+// collectInterval is the background sampling period. CPU usage and network/disk
+// I/O rates are derived from deltas between consecutive samples, so a fixed
+// period keeps the results independent of API request frequency.
+const collectInterval = 2 * time.Second
 
 type SystemStats struct {
 	CPUTemp      string  `json:"cpu_temp"`
@@ -34,14 +41,40 @@ type SystemStats struct {
 	MemCached    uint64  `json:"mem_cached"`
 	DiskRead     float64 `json:"disk_read"`
 	DiskWrite    float64 `json:"disk_write"`
+	Uptime       uint64  `json:"uptime"`
 }
 
 type Collector struct {
+	mu      sync.Mutex
+	current SystemStats
+
+	// Delta state below is only accessed from the collector goroutine; no lock needed
 	prevNetRecv   uint64
 	prevNetSent   uint64
 	prevDiskRead  uint64
 	prevDiskWrite uint64
 	lastUpdate    time.Time
+}
+
+// Start launches the background collection loop: one synchronous sample first
+// establishes the delta baseline, then snapshots refresh at a fixed period;
+// API requests read them through Snapshot.
+func (c *Collector) Start() {
+	c.collect()
+	go func() {
+		ticker := time.NewTicker(collectInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			c.collect()
+		}
+	}()
+}
+
+// Snapshot returns the most recently collected system stats
+func (c *Collector) Snapshot() SystemStats {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.current
 }
 
 func (c *Collector) GetCPUTemp() string {
@@ -73,12 +106,16 @@ func (c *Collector) GetCPUFreq() float64 {
 	return 0
 }
 
-func (c *Collector) CollectAll() SystemStats {
+func (c *Collector) collect() {
+	// Interval 0: compute the delta against the previous call (i.e. the previous
+	// sampling period). Since this function is only invoked by the fixed-period
+	// background loop, the interval is constant.
 	cpuPercent, _ := cpu.Percent(0, false)
 	v, _ := mem.VirtualMemory()
 	swap, _ := mem.SwapMemory()
 	loadAvg, _ := load.Avg()
 	diskStat, _ := disk.Usage("/")
+	uptime, _ := host.Uptime()
 
 	now := time.Now()
 	prevUpdate := c.lastUpdate
@@ -126,7 +163,7 @@ func (c *Collector) CollectAll() SystemStats {
 		load1, load5, load15 = loadAvg.Load1, loadAvg.Load5, loadAvg.Load15
 	}
 
-	return SystemStats{
+	stats := SystemStats{
 		CPUTemp:      c.GetCPUTemp(),
 		CPUUsage:     usage,
 		CPUFreq:      c.GetCPUFreq(),
@@ -146,5 +183,10 @@ func (c *Collector) CollectAll() SystemStats {
 		NetDown:      downSpeed,
 		NetUp:        upSpeed,
 		Connections:  connCount,
+		Uptime:       uptime,
 	}
+
+	c.mu.Lock()
+	c.current = stats
+	c.mu.Unlock()
 }
