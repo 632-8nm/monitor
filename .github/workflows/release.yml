@@ -26,7 +26,7 @@ jobs:
 
       - name: Cross-compile for arm64
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o monitor_server .
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-w" -o monitor_server .
           file monitor_server
 
       - name: Assemble release package
@@ -41,14 +41,18 @@ jobs:
           sha256sum "dist/${PKG}-linux-arm64.tar.gz" > "dist/${PKG}-linux-arm64.tar.gz.sha256"
           ls -l dist/
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF_NAME}"
           PKG="orangepi-monitor-${TAG}"
-          gh release create "$TAG" \
-            --title "orangepi-monitor ${TAG}" \
-            --generate-notes \
+          # Idempotent: re-running for an existing tag (e.g. after a force
+          # push) updates the assets instead of failing on create
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "orangepi-monitor ${TAG}" --generate-notes
+          fi
+          gh release upload "$TAG" \
             "dist/${PKG}-linux-arm64.tar.gz" \
-            "dist/${PKG}-linux-arm64.tar.gz.sha256"
+            "dist/${PKG}-linux-arm64.tar.gz.sha256" \
+            --clobber
