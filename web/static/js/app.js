@@ -4,7 +4,7 @@
 			const d = Math.floor(seconds / (3600 * 24));
 			const h = Math.floor((seconds % (3600 * 24)) / 3600);
 			const m = Math.floor((seconds % 3600) / 60);
-			return `${d}d ${h}h ${m}m`;
+			return `${d}天 ${h}时 ${m}分`;
 		},
 
 		formatBytes(bytes) {
@@ -23,12 +23,12 @@
 			tempEl.innerText = data.cpu_temp;
 			tempEl.style.color = parseFloat(data.cpu_temp) > 60 ? '#ef4444' : '#f8fafc';
 
-			// Load
+			// 负载
 			document.getElementById('load-1').innerText = (data.load_1 || 0).toFixed(2);
 			document.getElementById('load-5').innerText = (data.load_5 || 0).toFixed(2);
 			document.getElementById('load-15').innerText = (data.load_15 || 0).toFixed(2);
 
-			// Memory
+			// 内存
 			document.getElementById('mem-usage').innerText = data.mem_usage.toFixed(1);
 			document.getElementById('mem-bar').style.width = data.mem_usage + '%';
 			document.getElementById('mem-summary').innerText = data.mem_summary;
@@ -40,38 +40,38 @@
 			document.getElementById('swap-bar').style.width = (data.swap_usage || 0) + '%';
 			document.getElementById('swap-summary').innerText = data.swap_summary || '0 / 0 GB';
 
-			// Network
+			// 网络
 			document.getElementById('net-down').innerText = data.net_down.toFixed(1);
 			document.getElementById('net-up').innerText = data.net_up.toFixed(1);
 			document.getElementById('net-conns').innerText = data.connections || 0;
 
-			// Disk
+			// 磁盘
 			document.getElementById('disk-usage').innerText = (data.disk_usage || 0).toFixed(1);
 			document.getElementById('disk-bar').style.width = (data.disk_usage || 0) + '%';
 			document.getElementById('disk-summary').innerText = data.disk_summary || '0 / 0 GB';
 			document.getElementById('disk-read').innerText = (data.disk_read || 0).toFixed(1);
 			document.getElementById('disk-write').innerText = (data.disk_write || 0).toFixed(1);
 
-			// Uptime
+			// 运行时间
 			document.getElementById('uptime').innerText = this.formatUptime(data.uptime || 0);
 
 			document.getElementById('local-time').innerText =
-				`System OK | Last update: ${new Date().toLocaleTimeString()}`;
+				`系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
 		}
 	};
 
-	// ===== 24h trend chart (data from /api/history, one point per 10s) =====
+	// ===== 24 小时趋势图（数据来自 /api/history，每 10 秒一个点） =====
 	const Trends = {
 		data: null,
 		metric: 'cpu',
 		range: 24,
 		METRICS: {
 			cpu: [{ key: 'cpu', color: '#38bdf8', label: 'CPU %' }],
-			temp: [{ key: 'temp', color: '#f87171', label: 'Temp °C' }],
-			mem: [{ key: 'mem', color: '#34d399', label: 'Mem %' }],
+			temp: [{ key: 'temp', color: '#f87171', label: '温度 °C' }],
+			mem: [{ key: 'mem', color: '#34d399', label: '内存 %' }],
 			net: [
-				{ key: 'net_down', color: '#38bdf8', label: 'Down KB/s' },
-				{ key: 'net_up', color: '#c084fc', label: 'Up KB/s' }
+				{ key: 'net_down', color: '#38bdf8', label: '下载 KB/s' },
+				{ key: 'net_up', color: '#c084fc', label: '上传 KB/s' }
 			]
 		},
 
@@ -106,11 +106,11 @@
 				ctx.fillStyle = '#94a3b8';
 				ctx.font = '13px system-ui';
 				ctx.textAlign = 'center';
-				ctx.fillText('Collecting data...', cssW / 2, cssH / 2);
+				ctx.fillText('数据积累中...', cssW / 2, cssH / 2);
 				return;
 			}
 
-			// Slice to the selected range
+			// 截取所选时间范围
 			const maxPoints = Math.floor(this.range * 3600 / this.data.interval_s);
 			const start = Math.max(0, this.data.t.length - maxPoints);
 			const t = this.data.t.slice(start);
@@ -118,7 +118,7 @@
 			for (const s of series) cols[s.key] = this.data[s.key].slice(start);
 			const n = t.length;
 
-			// Y scale across all series, padded and floored at zero
+			// 跨系列求 Y 轴范围，留边距并以 0 为下限
 			let lo = Infinity, hi = -Infinity;
 			for (const s of series) {
 				for (const v of cols[s.key]) {
@@ -138,7 +138,7 @@
 			const px = i => M.l + (i / (n - 1)) * W;
 			const py = v => M.t + (1 - (v - lo) / (hi - lo)) * H;
 
-			// Grid + Y labels
+			// 网格线 + Y 轴刻度
 			ctx.font = '11px system-ui';
 			for (let g = 0; g <= 4; g++) {
 				const gy = M.t + (g / 4) * H;
@@ -152,7 +152,7 @@
 				ctx.fillText(this.fmtVal(hi - (g / 4) * (hi - lo)), M.l - 6, gy + 3);
 			}
 
-			// X labels: start / middle / end timestamps
+			// X 轴时间标签：首 / 中 / 尾
 			ctx.fillStyle = '#64748b';
 			[[0, 'left'], [0.5, 'center'], [1, 'right']].forEach(([frac, align]) => {
 				const idx = Math.round(frac * (n - 1));
@@ -161,7 +161,7 @@
 				ctx.fillText(label, M.l + frac * W, cssH - 4);
 			});
 
-			// Series lines
+			// 绘制各序列折线
 			for (const s of series) {
 				ctx.strokeStyle = s.color;
 				ctx.lineWidth = 1.5;
@@ -213,7 +213,7 @@
 		} catch (error) {
 			failCount++;
 			delay = Math.min(delay * 2, 30000);
-			document.getElementById('local-time').innerText = `Backend connection failed (retries: ${failCount})...`;
+			document.getElementById('local-time').innerText = `连接后端失败 (重试次数: ${failCount})...`;
 			console.error("Failed to fetch stats:", error);
 		}
 		scheduleNext();
