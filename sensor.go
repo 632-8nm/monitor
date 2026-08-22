@@ -22,26 +22,35 @@ import (
 const collectInterval = 2 * time.Second
 
 type SystemStats struct {
-	CPUTemp      string  `json:"cpu_temp"`
-	CPUUsage     float64 `json:"cpu_usage"`
-	CPUFreq      float64 `json:"cpu_freq"`
-	Load1        float64 `json:"load_1"`
-	Load5        float64 `json:"load_5"`
-	Load15       float64 `json:"load_15"`
-	MemUsage     float64 `json:"mem_usage"`
-	MemSummary   string  `json:"mem_summary"`
-	SwapUsage    float64 `json:"swap_usage"`
-	SwapSummary  string  `json:"swap_summary"`
-	DiskUsage    float64 `json:"disk_usage"`
-	DiskSummary  string  `json:"disk_summary"`
-	NetDown      float64 `json:"net_down"`
-	NetUp        float64 `json:"net_up"`
-	Connections  uint64  `json:"connections"`
-	MemAvailable uint64  `json:"mem_available"`
-	MemCached    uint64  `json:"mem_cached"`
-	DiskRead     float64 `json:"disk_read"`
-	DiskWrite    float64 `json:"disk_write"`
-	Uptime       uint64  `json:"uptime"`
+	CPUTemp      string        `json:"cpu_temp"`
+	CPUUsage     float64       `json:"cpu_usage"`
+	CPUFreq      float64       `json:"cpu_freq"`
+	Cores        []float64     `json:"cpu_cores"`
+	Thermals     []ThermalZone `json:"thermals"`
+	Load1        float64       `json:"load_1"`
+	Load5        float64       `json:"load_5"`
+	Load15       float64       `json:"load_15"`
+	MemUsage     float64       `json:"mem_usage"`
+	MemSummary   string        `json:"mem_summary"`
+	SwapUsage    float64       `json:"swap_usage"`
+	SwapSummary  string        `json:"swap_summary"`
+	DiskUsage    float64       `json:"disk_usage"`
+	DiskSummary  string        `json:"disk_summary"`
+	NetDown      float64       `json:"net_down"`
+	NetUp        float64       `json:"net_up"`
+	Connections  uint64        `json:"connections"`
+	MemAvailable uint64        `json:"mem_available"`
+	MemCached    uint64        `json:"mem_cached"`
+	DiskRead     float64       `json:"disk_read"`
+	DiskWrite    float64       `json:"disk_write"`
+	Uptime       uint64        `json:"uptime"`
+}
+
+// ThermalZone is one sysfs thermal zone (cpu-thermal, npu-thermal, ... —
+// whatever the board exposes), temperature in °C.
+type ThermalZone struct {
+	Type string  `json:"type"`
+	Temp float64 `json:"temp"`
 }
 
 type Collector struct {
@@ -112,11 +121,54 @@ func (c *Collector) GetCPUFreq() float64 {
 	return 0
 }
 
+// readThermals enumerates /sys/class/thermal/thermal_zone* so the dashboard
+// can show every temperature source the board exposes (CPU, NPU, GPU...).
+// Returns nil on platforms without sysfs (e.g. Windows dev machines).
+func readThermals() []ThermalZone {
+	entries, err := os.ReadDir("/sys/class/thermal")
+	if err != nil {
+		return nil
+	}
+	var zones []ThermalZone
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), "thermal_zone") {
+			continue
+		}
+		base := "/sys/class/thermal/" + e.Name()
+		typeRaw, err := os.ReadFile(base + "/type")
+		if err != nil {
+			continue
+		}
+		tempRaw, err := os.ReadFile(base + "/temp")
+		if err != nil {
+			continue
+		}
+		var milli int
+		if _, err := fmt.Sscanf(string(tempRaw), "%d", &milli); err != nil {
+			continue
+		}
+		zones = append(zones, ThermalZone{
+			Type: strings.TrimSpace(string(typeRaw)),
+			Temp: float64(milli) / 1000.0,
+		})
+	}
+	return zones
+}
+
 func (c *Collector) collect() {
 	// Interval 0: compute the delta against the previous call (i.e. the previous
 	// sampling period). Since this function is only invoked by the fixed-period
 	// background loop, the interval is constant.
-	cpuPercent, _ := cpu.Percent(0, false)
+	// Per-core percentages; the overall figure is their mean. A single call
+	// keeps the underlying /proc/stat delta baseline consistent.
+	perCore, _ := cpu.Percent(0, true)
+	usage := 0.0
+	for _, v := range perCore {
+		usage += v
+	}
+	if len(perCore) > 0 {
+		usage /= float64(len(perCore))
+	}
 	v, _ := mem.VirtualMemory()
 	swap, _ := mem.SwapMemory()
 	loadAvg, _ := load.Avg()
@@ -159,11 +211,6 @@ func (c *Collector) collect() {
 
 	c.lastUpdate = now
 
-	usage := 0.0
-	if len(cpuPercent) > 0 {
-		usage = cpuPercent[0]
-	}
-
 	load1, load5, load15 := 0.0, 0.0, 0.0
 	if loadAvg != nil {
 		load1, load5, load15 = loadAvg.Load1, loadAvg.Load5, loadAvg.Load15
@@ -173,6 +220,8 @@ func (c *Collector) collect() {
 		CPUTemp:      c.GetCPUTemp(),
 		CPUUsage:     usage,
 		CPUFreq:      c.GetCPUFreq(),
+		Cores:        perCore,
+		Thermals:     readThermals(),
 		Load1:        load1,
 		Load5:        load5,
 		Load15:       load15,

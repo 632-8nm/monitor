@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>系统监控</title>
-	<link rel="stylesheet" href="static/css/style.css?v=7">
+	<link rel="stylesheet" href="static/css/style.css?v=8">
 </head>
 
 <body>
@@ -16,17 +16,15 @@
 
 	<div class="container">
 		<div class="card">
-			<div class="card-title">CPU 核心状态</div>
+			<div class="card-title">处理器</div>
 			<div class="card-value"><span id="cpu-usage">0</span><span class="card-unit">%</span></div>
-			<p class="card-subtitle">频率: <span id="cpu-freq">0</span> MHz | 温度: <span id="cpu-temp">--</span></p>
+			<p class="card-subtitle">频率: <span id="cpu-freq">0</span> MHz</p>
 			<div class="progress-container">
 				<div id="cpu-bar" class="progress-bar"></div>
 			</div>
-		</div>
-
-		<div class="card">
-			<div class="card-title">系统负载</div>
-			<div class="load-row">
+			<div id="thermal-rows"></div>
+			<div class="core-grid" id="core-grid"></div>
+			<div class="load-row" style="margin-top:1rem;">
 				<div class="load-item">
 					<span class="load-value" id="load-1">0.00</span>
 					<span class="load-label">1 分钟</span>
@@ -43,23 +41,19 @@
 		</div>
 
 		<div class="card">
-			<div class="card-title">内存资源</div>
+			<div class="card-title">内存 / 交换</div>
 			<div class="card-value"><span id="mem-usage">0</span><span class="card-unit">%</span></div>
 			<p id="mem-summary" class="card-subtitle">0 / 0 GB</p>
 			<div class="progress-container">
 				<div id="mem-bar" class="progress-bar"></div>
 			</div>
 			<div class="info-row" style="margin-top:0.8rem;margin-bottom:0;"><span>可用</span> <span id="mem-avail">--</span></div>
-			<div class="info-row" style="margin-bottom:0;"><span>缓存</span> <span id="mem-cached">--</span></div>
-		</div>
-
-		<div class="card">
-			<div class="card-title">交换内存</div>
-			<div class="card-value"><span id="swap-usage">0</span><span class="card-unit">%</span></div>
-			<p id="swap-summary" class="card-subtitle">0 / 0 GB</p>
-			<div class="progress-container">
+			<div class="info-row" style="margin-top:0.4rem;"><span>缓存</span> <span id="mem-cached">--</span></div>
+			<div class="info-row" style="margin-top:0.8rem;"><span>交换内存</span> <span id="swap-usage">0%</span></div>
+			<div class="progress-container" style="margin-top:0.4rem;">
 				<div id="swap-bar" class="progress-bar"></div>
 			</div>
+			<p id="swap-summary" class="card-subtitle" style="text-align:right;margin-top:6px;">0 / 0 GB</p>
 		</div>
 
 		<div class="card">
@@ -96,12 +90,6 @@
 			</div>
 		</div>
 
-		<div class="card">
-			<div class="card-title">运行时间</div>
-			<div class="card-value uptime-value" id="uptime">--</div>
-			<p class="card-subtitle">系统自上次启动以来持续运行</p>
-		</div>
-
 		<div class="card trend-card">
 			<div class="card-title">24 小时趋势</div>
 			<div class="chart-controls">
@@ -126,7 +114,7 @@
 		<span class="status-dot"></span> 数据实时更新（趋势图数据保留在内存中，重启后重新积累）
 	</div>
 
-	<script src="static/js/app.js?v=11"></script>
+	<script src="static/js/app.js?v=12"></script>
 </body>
 
 </html>
