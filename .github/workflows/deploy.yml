@@ -111,6 +111,22 @@ jobs:
             chmod +x $DEPLOY_DIR/monitor_server
           "
 
+          # Deliver runtime secrets from GitHub Secrets into the board's env
+          # file (merged, so manually added settings survive). This must run
+          # inside this step — the cloudflared tunnel lives and dies with it.
+          echo "==> Syncing runtime config (ServerChan key) from Secrets"
+          if [ -n "$SERVERCHAN_KEY" ]; then
+            ENV_FILE=/etc/default/monitor
+            printf 'MONITOR_SERVERCHAN_KEY=%s\n' "$SERVERCHAN_KEY" | ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+                -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
+              set -e
+              (grep -v '^MONITOR_SERVERCHAN_KEY=' $ENV_FILE 2>/dev/null || true; cat) | sudo tee $ENV_FILE >/dev/null
+              echo 'runtime config synced'
+            "
+          else
+            echo 'SERVERCHAN_KEY secret not set, skipping'
+          fi
+
           echo "==> Starting the monitor service over SSH"
           ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
@@ -124,3 +140,4 @@ jobs:
           "
         env:
           CLOUDFLARED_TOKEN: ${{ secrets.CLOUDFLARED_TOKEN }}
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}

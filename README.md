@@ -99,6 +99,18 @@ git clone <本仓库> && cd orangepi-monitor
 当未设置 `MONITOR_BASIC_AUTH_USER/PASS` 时，服务以兼容模式运行（无鉴权）。
 当未设置 `MONITOR_ALLOWED_ORIGINS` 时，服务以宽松 CORS 模式运行。
 
+## 告警推送（Server酱 → 微信）
+
+设置 `MONITOR_SERVERCHAN_KEY` 后启用告警：温度 / 内存 / 磁盘越过阈值时通过 [Server酱](https://sct.ftqq.com)（微信扫码登录获取 SendKey）推送到微信，回落到阈值以下会再推一条恢复通知。相关环境变量：
+
+* `MONITOR_SERVERCHAN_KEY`：Server酱 SendKey（未设置则告警功能整体关闭）
+* `MONITOR_ALERT_TEMP`：温度告警阈值 °C（默认 70，0 禁用）
+* `MONITOR_ALERT_MEM`：内存告警阈值 %（默认 90，0 禁用）
+* `MONITOR_ALERT_DISK`：磁盘告警阈值 %（默认 90，0 禁用）
+* `MONITOR_ALERT_COOLDOWN`：同一告警的重发间隔，分钟（默认 30，配合 Server酱 免费版每日 5 条额度）
+
+本仓库 CI 部署时会把 GitHub Secret `SERVERCHAN_KEY` 自动写入板子的 `/etc/default/monitor`（合并写入，不影响其他配置行）；用 Release 包或源码自建的设备，直接编辑该文件即可。
+
 ## 技术亮点
 
 1. **单文件交付**：前端 `go:embed` 进二进制，部署、发版、传输都只有一个文件

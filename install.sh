@@ -76,6 +76,12 @@ MONITOR_LISTEN_ADDR=127.0.0.1:8080
 # MONITOR_BASIC_AUTH_USER=admin
 # MONITOR_BASIC_AUTH_PASS=change_me
 # MONITOR_ALLOWED_ORIGINS=https://monitor.example.com
+# 告警推送（Server酱，https://sct.ftqq.com 微信扫码获取 SendKey）
+# MONITOR_SERVERCHAN_KEY=SCTxxxxxxxx
+# MONITOR_ALERT_TEMP=70     (温度阈值 °C，0 = 禁用)
+# MONITOR_ALERT_MEM=90      (内存阈值 %，0 = 禁用)
+# MONITOR_ALERT_DISK=90     (磁盘阈值 %，0 = 禁用)
+# MONITOR_ALERT_COOLDOWN=30 (同一告警重发间隔，分钟)
 EOT
 fi
 
