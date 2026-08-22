@@ -47,6 +47,7 @@ type SystemStats struct {
 type Collector struct {
 	mu      sync.Mutex
 	current SystemStats
+	history *history
 
 	// Delta state below is only accessed from the collector goroutine; no lock needed
 	prevNetRecv   uint64
@@ -75,6 +76,11 @@ func (c *Collector) Snapshot() SystemStats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.current
+}
+
+// HistorySnapshot returns the recorded trend points for /api/history
+func (c *Collector) HistorySnapshot() historySnapshot {
+	return c.history.snapshot()
 }
 
 func (c *Collector) GetCPUTemp() string {
@@ -189,4 +195,6 @@ func (c *Collector) collect() {
 	c.mu.Lock()
 	c.current = stats
 	c.mu.Unlock()
+
+	c.history.maybeAppend(stats, now)
 }

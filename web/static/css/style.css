@@ -204,3 +204,69 @@ header h1 {
 	box-shadow: 0 0 8px var(--success);
 	vertical-align: middle;
 }
+
+/* ===== Trends chart ===== */
+.trend-card {
+	grid-column: 1 / -1;
+}
+
+.chart-controls {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 0.8rem;
+	flex-wrap: wrap;
+}
+
+.chart-metrics,
+.chart-ranges {
+	display: flex;
+	gap: 0.4rem;
+}
+
+.chart-btn {
+	background: rgba(56, 189, 248, 0.08);
+	color: var(--text-dim);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 6px;
+	padding: 4px 12px;
+	font-size: 0.75rem;
+	cursor: pointer;
+}
+
+.chart-btn:hover {
+	color: var(--text-main);
+}
+
+.chart-btn.active {
+	background: rgba(56, 189, 248, 0.25);
+	color: var(--text-main);
+	border-color: var(--accent-color);
+}
+
+#trend-canvas {
+	width: 100%;
+	height: 220px;
+	display: block;
+}
+
+.chart-legend {
+	margin-top: 0.5rem;
+	display: flex;
+	gap: 1rem;
+	font-size: 0.75rem;
+	color: var(--text-dim);
+}
+
+.legend-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.legend-dot {
+	width: 10px;
+	height: 3px;
+	border-radius: 2px;
+	display: inline-block;
+}

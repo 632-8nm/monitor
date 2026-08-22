@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>System Monitor</title>
-	<link rel="stylesheet" href="static/css/style.css?v=5">
+	<link rel="stylesheet" href="static/css/style.css?v=6">
 </head>
 
 <body>
@@ -101,13 +101,32 @@
 			<div class="card-value uptime-value" id="uptime">--</div>
 			<p class="card-subtitle">Continuous run since last boot</p>
 		</div>
+
+		<div class="card trend-card">
+			<div class="card-title">Trends (24h in memory)</div>
+			<div class="chart-controls">
+				<div class="chart-metrics">
+					<button type="button" class="chart-btn active" data-metric="cpu">CPU</button>
+					<button type="button" class="chart-btn" data-metric="temp">Temp</button>
+					<button type="button" class="chart-btn" data-metric="mem">Mem</button>
+					<button type="button" class="chart-btn" data-metric="net">Net</button>
+				</div>
+				<div class="chart-ranges">
+					<button type="button" class="chart-btn" data-range="1">1h</button>
+					<button type="button" class="chart-btn" data-range="6">6h</button>
+					<button type="button" class="chart-btn active" data-range="24">24h</button>
+				</div>
+			</div>
+			<canvas id="trend-canvas"></canvas>
+			<div class="chart-legend" id="chart-legend"></div>
+		</div>
 	</div>
 
 	<div class="status-footer">
 		<span class="status-dot"></span> Live data updates
 	</div>
 
-	<script src="static/js/app.js?v=9"></script>
+	<script src="static/js/app.js?v=10"></script>
 </body>
 
 </html>
