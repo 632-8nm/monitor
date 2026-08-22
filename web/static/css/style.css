@@ -320,3 +320,31 @@ header h1 {
 .temp-sep {
 	color: var(--text-dim);
 }
+
+/* ===== 进程 TOP ===== */
+.proc-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 0.8rem;
+	font-size: 0.85rem;
+	padding: 3px 0;
+}
+
+.proc-name {
+	color: var(--text-main);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.proc-pid {
+	color: var(--text-dim);
+	font-size: 0.7rem;
+	margin-left: 4px;
+}
+
+.proc-val {
+	color: var(--text-dim);
+	white-space: nowrap;
+}

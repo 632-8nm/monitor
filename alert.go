@@ -76,7 +76,17 @@ func NewAlerterFromEnv() *Alerter {
 	a.rules = []*alertRule{
 		{name: "温度", env: "MONITOR_ALERT_TEMP", unit: "°C", threshold: envFloat("MONITOR_ALERT_TEMP", defaultTempAlert), hysteresis: tempHysteresis, value: maxThermal},
 		{name: "内存", env: "MONITOR_ALERT_MEM", unit: "%", threshold: envFloat("MONITOR_ALERT_MEM", defaultMemAlert), hysteresis: pctHysteresis, value: func(s SystemStats) float64 { return s.MemUsage }},
-		{name: "磁盘", env: "MONITOR_ALERT_DISK", unit: "%", threshold: envFloat("MONITOR_ALERT_DISK", defaultDiskAlert), hysteresis: pctHysteresis, value: func(s SystemStats) float64 { return s.DiskUsage }},
+		{name: "磁盘", env: "MONITOR_ALERT_DISK", unit: "%", threshold: envFloat("MONITOR_ALERT_DISK", defaultDiskAlert), hysteresis: pctHysteresis, value: func(s SystemStats) float64 {
+			// Highest usage across mount points: small partitions like
+			// /var/log fill up long before / does
+			peak := s.DiskUsage
+			for _, m := range s.DiskMounts {
+				if m.Usage > peak {
+					peak = m.Usage
+				}
+			}
+			return peak
+		}},
 	}
 	return a
 }

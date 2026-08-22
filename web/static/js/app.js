@@ -84,12 +84,33 @@
 				? `<span style="color:var(--success)">正常 · ${Math.round(data.net_latency_ms)} ms</span>`
 				: '<span style="color:#ef4444">不可达</span>';
 
-			// 磁盘
+			// 磁盘（根占用大数值 + 其余挂载点行）
 			document.getElementById('disk-usage').innerText = (data.disk_usage || 0).toFixed(1);
 			document.getElementById('disk-bar').style.width = (data.disk_usage || 0) + '%';
 			document.getElementById('disk-summary').innerText = data.disk_summary || '0 / 0 GB';
 			document.getElementById('disk-read').innerText = (data.disk_read || 0).toFixed(1);
 			document.getElementById('disk-write').innerText = (data.disk_write || 0).toFixed(1);
+			const mountBox = document.getElementById('disk-mounts');
+			if (mountBox) {
+				mountBox.innerHTML = (data.disk_mounts || [])
+					.filter(m => m.mount !== '/')
+					.map(m => `<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>${m.mount}</span><span>${(m.usage || 0).toFixed(1)}% · ${m.summary}</span></div>`)
+					.join('');
+			}
+
+			// 进程 TOP5（名称来自 /proc，做基本转义防注入）
+			const procBox = document.getElementById('proc-rows');
+			if (procBox) {
+				procBox.innerHTML = (data.top_procs || []).map(p => {
+					const name = String(p.name).replace(/[<>&]/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[ch]));
+					return `<div class="proc-row"><span class="proc-name">${name}<span class="proc-pid">#${p.pid}</span></span><span class="proc-val">${(p.cpu || 0).toFixed(1)}% · ${(p.mem || 0).toFixed(1)}%</span></div>`;
+				}).join('') || '<p class="card-subtitle">--</p>';
+			}
+
+			// 系统信息卡的处理器行：SoC 型号 + 实时频率（MHz → GHz）
+			if (Sys) {
+				document.getElementById('sys-cpu').innerText = `${Sys.cpu} @ ${(data.cpu_freq / 1000).toFixed(2)} GHz`;
+			}
 
 			// 页头：运行时间 + 状态 + 最后更新
 			document.getElementById('local-time').innerText =
@@ -267,16 +288,17 @@
 		}
 	}
 
-	// ===== 系统信息（静态，仅加载时拉取一次） =====
+	// ===== 系统信息（静态，仅加载时拉取一次；处理器行随轮询带实时频率） =====
+	let Sys = null;
 	async function fetchSystem() {
 		try {
 			const response = await fetch('/api/system');
 			if (!response.ok) return;
 			const s = await response.json();
+			Sys = s;
 			document.getElementById('sys-os').innerText = s.os || '--';
 			document.getElementById('sys-kernel').innerText = s.kernel || '--';
 			document.getElementById('sys-board').innerText = s.board || '--';
-			document.getElementById('sys-cpu').innerText = `${s.cpu || '--'} · ${s.cores} 核`;
 			document.getElementById('sys-version').innerText = s.version || '--';
 		} catch (error) {
 			console.error('Failed to fetch system info:', error);

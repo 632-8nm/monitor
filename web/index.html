@@ -83,6 +83,7 @@
 			<div class="progress-container">
 				<div id="disk-bar" class="progress-bar"></div>
 			</div>
+			<div id="disk-mounts"></div>
 			<div class="net-row" style="margin-top:0.8rem;">
 				<div class="net-item">
 					<span class="net-label">读取</span>
@@ -102,6 +103,12 @@
 			<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>主机型号</span> <span id="sys-board">--</span></div>
 			<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>处理器</span> <span id="sys-cpu">--</span></div>
 			<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>程序版本</span> <span id="sys-version">--</span></div>
+		</div>
+
+		<div class="card">
+			<div class="card-title">进程 TOP5</div>
+			<p class="card-subtitle" style="margin-bottom:0.6rem;">按 CPU 排序（CPU% · 内存%）</p>
+			<div id="proc-rows"></div>
 		</div>
 
 		<div class="card trend-card">
@@ -128,7 +135,7 @@
 		<span class="status-dot"></span> 数据实时更新（趋势图数据保留在内存中，重启后重新积累）
 	</div>
 
-	<script src="static/js/app.js?v=16"></script>
+	<script src="static/js/app.js?v=18"></script>
 </body>
 
 </html>
