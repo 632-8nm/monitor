@@ -1,0 +1,54 @@
+name: Release
+
+# Push a version tag (v*) to build an arm64 release package and publish it
+# as a GitHub Release. The tarball bundles the binary, frontend files and
+# the install/uninstall scripts — end users need no Go toolchain:
+#   tar -xzf orangepi-monitor-<tag>-linux-arm64.tar.gz && ./install.sh
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Cross-compile for arm64
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o monitor_server .
+          file monitor_server
+
+      - name: Assemble release package
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PKG="orangepi-monitor-${TAG}"
+          mkdir -p "dist/${PKG}"
+          cp monitor_server index.html install.sh uninstall.sh "dist/${PKG}/"
+          cp -r static "dist/${PKG}/static"
+          chmod +x "dist/${PKG}/monitor_server" "dist/${PKG}/install.sh" "dist/${PKG}/uninstall.sh"
+          tar -czf "dist/${PKG}-linux-arm64.tar.gz" -C dist "$PKG"
+          sha256sum "dist/${PKG}-linux-arm64.tar.gz" > "dist/${PKG}-linux-arm64.tar.gz.sha256"
+          ls -l dist/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PKG="orangepi-monitor-${TAG}"
+          gh release create "$TAG" \
+            --title "orangepi-monitor ${TAG}" \
+            --generate-notes \
+            "dist/${PKG}-linux-arm64.tar.gz" \
+            "dist/${PKG}-linux-arm64.tar.gz.sha256"

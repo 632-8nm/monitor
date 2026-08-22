@@ -28,7 +28,8 @@ This repository manages the system monitor program for an Orange Pi Zero3, with 
 * **Restart the monitor**: `sudo systemctl restart monitor`
 * **Check tunnel status**: `sudo systemctl status cloudflared`
 * **Restart the tunnel**: `sudo systemctl restart cloudflared`
-* **Install/upgrade from source**: `./install.sh` (builds locally and installs into `/opt/orangepi-monitor`; override with `INSTALL_DIR`; re-running performs an upgrade)
+* **Build & install from source**: `./build.sh` (compiles, then installs via `./install.sh`; `BUILD_ONLY=1 ./build.sh` compiles only)
+* **Install a prebuilt package**: `./install.sh` (installs `monitor_server` + frontend from the current directory into `/opt/orangepi-monitor`; works with extracted release tarballs; override with `INSTALL_DIR`)
 * **Uninstall**: `./uninstall.sh` (reverts everything `install.sh` did; does not touch the cloudflared tunnel)
 
 ## Redeployment
@@ -41,16 +42,27 @@ Every push to GitHub `main` triggers GitHub Actions to:
 
 No manual intervention required.
 
-## Install from source (other devices)
+## Self-hosting on other devices
 
-To self-host on another board without this repository's CI/CD:
+**From a release package (recommended, no Go toolchain needed):**
+
+Releases are built automatically whenever a version tag (`v*`) is pushed.
+Download the latest `linux-arm64` tarball from the GitHub Releases page, then:
 
 ```bash
-git clone <this repo> && cd orangepi-monitor
+tar -xzf orangepi-monitor-vX.Y.Z-linux-arm64.tar.gz
+cd orangepi-monitor-vX.Y.Z
 ./install.sh
 ```
 
-The script builds locally, installs into `/opt/orangepi-monitor`, registers the systemd service (`monitor`) and enables it on boot. By default it only listens on `127.0.0.1:8080`. For security options (Basic Auth / CORS) see the "Security" section below. To remove everything, run `./uninstall.sh`.
+**From source:**
+
+```bash
+git clone <this repo> && cd orangepi-monitor
+./build.sh
+```
+
+Both paths install into `/opt/orangepi-monitor` (override with `INSTALL_DIR`), register the systemd service (`monitor`) and enable it on boot. By default the service only listens on `127.0.0.1:8080`; for security options (Basic Auth / CORS) see the "Security" section below. To remove everything, run `./uninstall.sh`.
 
 ## Service configuration
 
