@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>系统监控</title>
-	<link rel="stylesheet" href="static/css/style.css?v=8">
+	<link rel="stylesheet" href="static/css/style.css?v=9">
 </head>
 
 <body>
@@ -17,12 +17,14 @@
 	<div class="container">
 		<div class="card">
 			<div class="card-title">处理器</div>
-			<div class="card-value"><span id="cpu-usage">0</span><span class="card-unit">%</span></div>
+			<div class="cpu-head">
+				<div class="card-value"><span id="cpu-usage">0</span><span class="card-unit">%</span></div>
+				<div class="cpu-temp" id="cpu-temp">--</div>
+			</div>
 			<p class="card-subtitle">频率: <span id="cpu-freq">0</span> MHz</p>
 			<div class="progress-container">
 				<div id="cpu-bar" class="progress-bar"></div>
 			</div>
-			<div id="thermal-rows"></div>
 			<div class="core-grid" id="core-grid"></div>
 			<div class="load-row" style="margin-top:1rem;">
 				<div class="load-item">
@@ -114,7 +116,7 @@
 		<span class="status-dot"></span> 数据实时更新（趋势图数据保留在内存中，重启后重新积累）
 	</div>
 
-	<script src="static/js/app.js?v=12"></script>
+	<script src="static/js/app.js?v=13"></script>
 </body>
 
 </html>

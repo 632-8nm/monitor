@@ -121,8 +121,16 @@ func (c *Collector) GetCPUFreq() float64 {
 	return 0
 }
 
+// usefulThermal reports whether a sysfs thermal zone is worth exposing.
+// Only CPU/NPU sensors are kept: the video-engine and DDR-controller
+// sensors sunxi SoCs also expose are idle noise on a headless board.
+func usefulThermal(zoneType string) bool {
+	t := strings.ToLower(zoneType)
+	return strings.Contains(t, "cpu") || strings.Contains(t, "npu")
+}
+
 // readThermals enumerates /sys/class/thermal/thermal_zone* so the dashboard
-// can show every temperature source the board exposes (CPU, NPU, GPU...).
+// can show the CPU/NPU temperature sources the board exposes.
 // Returns nil on platforms without sysfs (e.g. Windows dev machines).
 func readThermals() []ThermalZone {
 	entries, err := os.ReadDir("/sys/class/thermal")
@@ -139,6 +147,10 @@ func readThermals() []ThermalZone {
 		if err != nil {
 			continue
 		}
+		zoneType := strings.TrimSpace(string(typeRaw))
+		if !usefulThermal(zoneType) {
+			continue
+		}
 		tempRaw, err := os.ReadFile(base + "/temp")
 		if err != nil {
 			continue
@@ -147,10 +159,7 @@ func readThermals() []ThermalZone {
 		if _, err := fmt.Sscanf(string(tempRaw), "%d", &milli); err != nil {
 			continue
 		}
-		zones = append(zones, ThermalZone{
-			Type: strings.TrimSpace(string(typeRaw)),
-			Temp: float64(milli) / 1000.0,
-		})
+		zones = append(zones, ThermalZone{Type: zoneType, Temp: float64(milli) / 1000.0})
 	}
 	return zones
 }
