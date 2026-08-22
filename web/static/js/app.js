@@ -232,7 +232,8 @@
 	};
 
 	let failCount = 0;
-	let delay = 1000;
+	// 轮询间隔与后端快档采样对齐（2 秒），避免一半请求拿到重复数据
+	let delay = 2000;
 
 	function scheduleNext() {
 		setTimeout(fetchStats, delay);
@@ -246,7 +247,7 @@
 			const data = await response.json();
 			UI.updateAll(data);
 			failCount = 0;
-			delay = 1000;
+			delay = 2000;
 		} catch (error) {
 			failCount++;
 			delay = Math.min(delay * 2, 30000);
