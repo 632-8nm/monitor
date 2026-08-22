@@ -4,7 +4,7 @@
 			const d = Math.floor(seconds / (3600 * 24));
 			const h = Math.floor((seconds % (3600 * 24)) / 3600);
 			const m = Math.floor((seconds % 3600) / 60);
-			return `${d}天 ${h}时 ${m}分`;
+			return `${d}d ${h}h ${m}m`;
 		},
 
 		formatBytes(bytes) {
@@ -52,8 +52,11 @@
 			document.getElementById('disk-read').innerText = (data.disk_read || 0).toFixed(1);
 			document.getElementById('disk-write').innerText = (data.disk_write || 0).toFixed(1);
 
+			// Uptime
+			document.getElementById('uptime').innerText = this.formatUptime(data.uptime || 0);
+
 			document.getElementById('local-time').innerText =
-				`系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
+				`System OK | Last update: ${new Date().toLocaleTimeString()}`;
 		}
 	};
 
@@ -76,7 +79,7 @@
 		} catch (error) {
 			failCount++;
 			delay = Math.min(delay * 2, 30000);
-			document.getElementById('local-time').innerText = `连接后端失败 (重试次数: ${failCount})...`;
+			document.getElementById('local-time').innerText = `Backend connection failed (retries: ${failCount})...`;
 			console.error("Failed to fetch stats:", error);
 		}
 		scheduleNext();
