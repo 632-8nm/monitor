@@ -16,10 +16,15 @@ import (
 	"github.com/shirou/gopsutil/v3/net"
 )
 
-// collectInterval is the background sampling period. CPU usage and network/disk
-// I/O rates are derived from deltas between consecutive samples, so a fixed
-// period keeps the results independent of API request frequency.
-const collectInterval = 2 * time.Second
+const (
+	// Fast tier (2s): the metrics that create the "live" feel — CPU,
+	// memory, load and rate deltas. Costs a handful of /proc reads.
+	collectInterval = 2 * time.Second
+	// Slow tier (10s): slow-moving metrics — TCP table parsing is the
+	// single most expensive collection step, while temps/disk usage
+	// barely change between samples.
+	slowInterval = 10 * time.Second
+)
 
 type SystemStats struct {
 	CPUTemp      string        `json:"cpu_temp"`
@@ -76,18 +81,27 @@ type Collector struct {
 	lastUpdate    time.Time
 }
 
-// Start launches the background collection loop: one synchronous sample first
-// establishes the delta baseline, then snapshots refresh at a fixed period;
-// API requests read them through Snapshot. The internet reachability probe
-// runs on its own schedule.
+// Start launches the background collection loops: one synchronous sample of
+// each tier first establishes the delta baseline and fills the snapshot,
+// then fast (2s) and slow (10s) tickers refresh it from a single goroutine;
+// API requests only read the snapshot. The internet probe runs on its own
+// schedule.
 func (c *Collector) Start() {
 	c.probe.start()
-	c.collect()
+	c.collectFast()
+	c.collectSlow()
 	go func() {
-		ticker := time.NewTicker(collectInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			c.collect()
+		fast := time.NewTicker(collectInterval)
+		slow := time.NewTicker(slowInterval)
+		defer fast.Stop()
+		defer slow.Stop()
+		for {
+			select {
+			case <-fast.C:
+				c.collectFast()
+			case <-slow.C:
+				c.collectSlow()
+			}
 		}
 	}()
 }
@@ -176,12 +190,12 @@ func readThermals() []ThermalZone {
 	return zones
 }
 
-func (c *Collector) collect() {
-	// Interval 0: compute the delta against the previous call (i.e. the previous
-	// sampling period). Since this function is only invoked by the fixed-period
-	// background loop, the interval is constant.
-	// Per-core percentages; the overall figure is their mean. A single call
-	// keeps the underlying /proc/stat delta baseline consistent.
+// collectFast refreshes the live-feel metrics (CPU, memory, load, network
+// and disk I/O rates) into the shared snapshot, preserving the slow-tier
+// fields. Interval 0 for cpu.Percent computes the delta against the previous
+// call, i.e. the previous fast period; only the fixed-period loop calls this,
+// so the interval is constant.
+func (c *Collector) collectFast() {
 	perCore, _ := cpu.Percent(0, true)
 	usage := 0.0
 	for _, v := range perCore {
@@ -193,8 +207,6 @@ func (c *Collector) collect() {
 	v, _ := mem.VirtualMemory()
 	swap, _ := mem.SwapMemory()
 	loadAvg, _ := load.Avg()
-	diskStat, _ := disk.Usage("/")
-	uptime, _ := host.Uptime()
 
 	now := time.Now()
 	prevUpdate := c.lastUpdate
@@ -213,21 +225,6 @@ func (c *Collector) collect() {
 		}
 		c.prevNetRecv = io[0].BytesRecv
 		c.prevNetSent = io[0].BytesSent
-	}
-
-	// TCP connections broken down by state (counts only, never endpoints)
-	connections, _ := net.Connections("tcp")
-	var connCount, estab, listen, timewait uint64
-	for _, cn := range connections {
-		switch cn.Status {
-		case "ESTABLISHED":
-			estab++
-		case "LISTEN":
-			listen++
-		case "TIME_WAIT":
-			timewait++
-		}
-		connCount++
 	}
 
 	// Disk I/O rates
@@ -252,43 +249,70 @@ func (c *Collector) collect() {
 		load1, load5, load15 = loadAvg.Load1, loadAvg.Load5, loadAvg.Load15
 	}
 
-	stats := SystemStats{
-		CPUTemp:      c.GetCPUTemp(),
-		CPUUsage:     usage,
-		CPUFreq:      c.GetCPUFreq(),
-		Cores:        perCore,
-		Thermals:     readThermals(),
-		Load1:        load1,
-		Load5:        load5,
-		Load15:       load15,
-		MemUsage:     v.UsedPercent,
-		MemSummary:   fmt.Sprintf("%.2f / %.2f GB", float64(v.Used)/1e9, float64(v.Total)/1e9),
-		MemAvailable: v.Available,
-		MemCached:    v.Cached,
-		SwapUsage:    swap.UsedPercent,
-		SwapSummary:  fmt.Sprintf("%.2f / %.2f GB", float64(swap.Used)/1e9, float64(swap.Total)/1e9),
-		DiskUsage:    diskStat.UsedPercent,
-		DiskSummary:  fmt.Sprintf("%.2f / %.2f GB", float64(diskStat.Used)/1e9, float64(diskStat.Total)/1e9),
-		DiskRead:     diskReadSpeed,
-		DiskWrite:    diskWriteSpeed,
-		NetDown:      downSpeed,
-		NetUp:        upSpeed,
-		NetTotalDown: totalDown,
-		NetTotalUp:   totalUp,
-		NetDropped:   dropped,
-		NetErrors:    errs,
-		NetOnline:    c.probe.online.Load(),
-		NetLatencyMs: float64(c.probe.rttMs.Load()),
-		Connections:  connCount,
-		ConnEstab:    estab,
-		ConnListen:   listen,
-		ConnTimeWait: timewait,
-		Uptime:       uptime,
-	}
-
 	c.mu.Lock()
-	c.current = stats
+	s := c.current
+	s.CPUUsage = usage
+	s.CPUFreq = c.GetCPUFreq()
+	s.Cores = perCore
+	s.Load1, s.Load5, s.Load15 = load1, load5, load15
+	s.MemUsage = v.UsedPercent
+	s.MemSummary = fmt.Sprintf("%.2f / %.2f GB", float64(v.Used)/1e9, float64(v.Total)/1e9)
+	s.MemAvailable = v.Available
+	s.MemCached = v.Cached
+	s.SwapUsage = swap.UsedPercent
+	s.SwapSummary = fmt.Sprintf("%.2f / %.2f GB", float64(swap.Used)/1e9, float64(swap.Total)/1e9)
+	s.NetDown = downSpeed
+	s.NetUp = upSpeed
+	s.NetTotalDown = totalDown
+	s.NetTotalUp = totalUp
+	s.NetDropped = dropped
+	s.NetErrors = errs
+	s.NetOnline = c.probe.online.Load()
+	s.NetLatencyMs = float64(c.probe.rttMs.Load())
+	s.DiskRead = diskReadSpeed
+	s.DiskWrite = diskWriteSpeed
+	c.current = s
+	snapshot := s
 	c.mu.Unlock()
 
-	c.history.maybeAppend(stats, now)
+	c.history.maybeAppend(snapshot, now)
+}
+
+// collectSlow refreshes the slow-moving metrics (TCP state counts, thermal
+// zones, disk usage, uptime) into the shared snapshot. TCP table parsing is
+// the single most expensive collection step, which is why it lives here.
+func (c *Collector) collectSlow() {
+	// TCP connections broken down by state (counts only, never endpoints)
+	connections, _ := net.Connections("tcp")
+	var connCount, estab, listen, timewait uint64
+	for _, cn := range connections {
+		switch cn.Status {
+		case "ESTABLISHED":
+			estab++
+		case "LISTEN":
+			listen++
+		case "TIME_WAIT":
+			timewait++
+		}
+		connCount++
+	}
+
+	thermals := readThermals()
+	cpuTemp := c.GetCPUTemp()
+	diskStat, _ := disk.Usage("/")
+	uptime, _ := host.Uptime()
+
+	c.mu.Lock()
+	s := c.current
+	s.CPUTemp = cpuTemp
+	s.Thermals = thermals
+	s.Connections = connCount
+	s.ConnEstab = estab
+	s.ConnListen = listen
+	s.ConnTimeWait = timewait
+	s.DiskUsage = diskStat.UsedPercent
+	s.DiskSummary = fmt.Sprintf("%.2f / %.2f GB", float64(diskStat.Used)/1e9, float64(diskStat.Total)/1e9)
+	s.Uptime = uptime
+	c.current = s
+	c.mu.Unlock()
 }
