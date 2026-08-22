@@ -101,15 +101,34 @@ jobs:
           "
 
           # Stream the (embedded-frontend) binary compressed over a single
-          # SSH connection: gzip shrinks it to roughly a third of its size
+          # SSH connection: gzip shrinks it to roughly a third of its size.
+          # The transfer retries on tunnel hiccups; extraction goes to a
+          # temp dir and is moved into place, so an interrupted transfer
+          # never truncates the previous binary; if all retries fail, the
+          # previous service is restarted instead of leaving the board down.
           echo "==> Transferring the binary to the board"
-          tar -czf - monitor_server | ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
-            set -e
-            mkdir -p $DEPLOY_DIR
-            tar -xzf - -C $DEPLOY_DIR
-            chmod +x $DEPLOY_DIR/monitor_server
-          "
+          SSH_OPTS="-i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -p 2222"
+          transfer_ok=0
+          for attempt in 1 2 3; do
+            if tar -czf - monitor_server | ssh $SSH_OPTS orangepi@127.0.0.1 "
+              set -e
+              tmp=\$(mktemp -d)
+              tar -xzf - -C \$tmp
+              chmod +x \$tmp/monitor_server
+              mv \$tmp/monitor_server $DEPLOY_DIR/monitor_server
+              rmdir \$tmp
+            "; then
+              transfer_ok=1
+              break
+            fi
+            echo "==> Transfer attempt $attempt failed, retrying in 5s..."
+            sleep 5
+          done
+          if [ "$transfer_ok" != "1" ]; then
+            echo "==> Transfer failed after retries — restarting the previous binary"
+            ssh $SSH_OPTS orangepi@127.0.0.1 "sudo systemctl start monitor || true" || true
+            exit 1
+          fi
 
           # Deliver runtime secrets from GitHub Secrets into the board's env
           # file (merged, so manually added settings survive). This must run
@@ -128,16 +147,25 @@ jobs:
           fi
 
           echo "==> Starting the monitor service over SSH"
-          ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
-            set -e
-            echo '==> Replacing the binary'
-            chmod +x $DEPLOY_DIR/monitor_server
-            sudo systemctl start monitor
-            sleep 2
-            echo '==> Service status: '\$(systemctl is-active monitor)
-            sudo systemctl is-active monitor
-          "
+          start_ok=0
+          for attempt in 1 2 3; do
+            if ssh $SSH_OPTS orangepi@127.0.0.1 "
+              set -e
+              sudo systemctl start monitor
+              sleep 2
+              echo '==> Service status: '\$(systemctl is-active monitor)
+              sudo systemctl is-active monitor
+            "; then
+              start_ok=1
+              break
+            fi
+            echo "==> Start attempt $attempt failed, retrying in 5s..."
+            sleep 5
+          done
+          if [ "$start_ok" != "1" ]; then
+            echo "❌ Could not start the service — check the board: systemctl status monitor / journalctl -u monitor -n 50"
+            exit 1
+          fi
         env:
           CLOUDFLARED_TOKEN: ${{ secrets.CLOUDFLARED_TOKEN }}
           SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
