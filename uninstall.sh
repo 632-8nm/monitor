@@ -1,46 +1,45 @@
 #!/bin/bash
-# Uninstall script: reverts everything install.sh did.
-# Usage: ./uninstall.sh
-# Custom install directory: INSTALL_DIR=/path/to/dir ./uninstall.sh
-# Note: the cloudflared tunnel is outside the scope of install.sh and is never touched.
+# 卸载脚本：撤销 install.sh 的全部操作。
+# 用法：./uninstall.sh
+# 如自定义过安装目录：INSTALL_DIR=/path/to/dir ./uninstall.sh
+# 注意：cloudflared 隧道不属于 install.sh 的安装范围，本脚本不会触碰。
 set -e
 
-# ===== Configuration (must stay in sync with install.sh) =====
+# ===== 配置项（须与 install.sh 保持一致） =====
 SERVICE_NAME="monitor"
 INSTALL_DIR="${INSTALL_DIR:-/opt/orangepi-monitor}"
 ENV_FILE="/etc/default/monitor"
 
-# Safety guard: refuse a dangerous install directory
-# (an empty value expands to the default via :-, so only "/" needs blocking here)
+# 防呆：拒绝危险的安装目录（空值会经 :- 展开为默认目录，此处只需拦截 /）
 if [ "$INSTALL_DIR" = "/" ]; then
-    echo "❌ Invalid INSTALL_DIR: '$INSTALL_DIR', refusing to continue"
+    echo "❌ 非法的 INSTALL_DIR: '$INSTALL_DIR'，拒绝执行"
     exit 1
 fi
 
 echo "------------------------------------------------"
-echo "🧹 Orange Pi monitor uninstall"
-echo "   Will remove: systemd service / $INSTALL_DIR / $ENV_FILE"
+echo "🧹 Orange Pi 监控服务卸载"
+echo "   将删除: systemd 服务 / $INSTALL_DIR / $ENV_FILE"
 echo "------------------------------------------------"
 
-read -r -p "Confirm uninstall? (y/N) " confirm || confirm=""
+read -r -p "确认卸载？(y/N) " confirm || confirm=""
 if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
-    echo "Cancelled, nothing was changed"
+    echo "已取消，未做任何改动"
     exit 0
 fi
 
-echo "⏹️  Stopping and removing the systemd service..."
+echo "⏹️  停止并移除 systemd 服务..."
 sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 sudo systemctl disable "$SERVICE_NAME" 2>/dev/null || true
 sudo rm -f "/etc/systemd/system/$SERVICE_NAME.service"
 sudo systemctl daemon-reload
 sudo systemctl reset-failed 2>/dev/null || true
 
-echo "🗑️  Removing the deploy directory $INSTALL_DIR ..."
+echo "🗑️  删除部署目录 $INSTALL_DIR ..."
 sudo rm -rf "$INSTALL_DIR"
 
-echo "🗑️  Removing the environment file $ENV_FILE ..."
+echo "🗑️  删除环境变量文件 $ENV_FILE ..."
 sudo rm -f "$ENV_FILE"
 
 echo "------------------------------------------------"
-echo "✅ Uninstall complete"
+echo "✅ 卸载完成"
 echo "------------------------------------------------"

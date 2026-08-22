@@ -48,7 +48,7 @@ header h1 {
 	max-width: 1000px;
 }
 
-/* ===== Card container ===== */
+/* ===== 卡片容器 ===== */
 .card {
 	background: var(--card-bg);
 	padding: 1.5rem;
@@ -65,7 +65,7 @@ header h1 {
 	font-weight: 600;
 }
 
-/* ===== Primary value (CPU / memory / swap / disk) ===== */
+/* ===== 主数值（CPU / 内存 / 交换 / 磁盘 通用）===== */
 .card-value {
 	font-size: 2.2rem;
 	font-weight: 800;
@@ -83,7 +83,7 @@ header h1 {
 	margin-top: 8px;
 }
 
-/* ===== Progress bar (CPU / memory / swap / disk) ===== */
+/* ===== 进度条（CPU / 内存 / 交换 / 磁盘 通用）===== */
 .progress-container {
 	height: 8px;
 	background: rgba(0, 0, 0, 0.3);
@@ -99,7 +99,7 @@ header h1 {
 	transition: width 0.5s ease;
 }
 
-/* ===== System load (three columns) ===== */
+/* ===== 系统负载（三列布局）===== */
 .load-row {
 	display: flex;
 	justify-content: space-between;
@@ -124,7 +124,7 @@ header h1 {
 	margin-top: 4px;
 }
 
-/* ===== Network ===== */
+/* ===== 实时网络 ===== */
 .net-row {
 	display: flex;
 	justify-content: space-between;
@@ -153,7 +153,7 @@ header h1 {
 	margin-left: 2px;
 }
 
-/* ===== Info rows ===== */
+/* ===== 系统运行信息 ===== */
 .info-row {
 	display: flex;
 	justify-content: space-between;
@@ -181,13 +181,13 @@ header h1 {
 	margin-top: 0.5rem;
 }
 
-/* ===== Uptime ===== */
+/* ===== 运行时间 ===== */
 .uptime-value {
 	font-size: 1.6rem;
 	letter-spacing: 0.5px;
 }
 
-/* ===== Page footer ===== */
+/* ===== 页面底部 ===== */
 .status-footer {
 	margin-top: 2rem;
 	color: var(--text-dim);
@@ -205,7 +205,7 @@ header h1 {
 	vertical-align: middle;
 }
 
-/* ===== Trends chart ===== */
+/* ===== 趋势图 ===== */
 .trend-card {
 	grid-column: 1 / -1;
 }

@@ -1,56 +1,54 @@
 #!/bin/bash
-# Installer for a ready-to-run monitor package: installs the binary into
-# INSTALL_DIR and registers the systemd service. The frontend is embedded
-# in the binary, so this is the only file needed.
-# Works from either an extracted release tarball or a source tree where
-# ./build.sh has already produced the binary.
-# Usage: ./install.sh          (from the directory containing the package)
-#        INSTALL_DIR=/path ./install.sh   to override the install location
-# Re-running performs an upgrade: overwrite files → restart service.
+# 一键安装脚本：安装现成的 monitor_server 二进制并注册 systemd 服务。
+# 前端已内嵌在二进制中，无需其他文件。
+# 适用于 Release 包解压目录，或已执行过 ./build.sh 的源码目录。
+# 用法：./install.sh          （在包含 monitor_server 的目录执行）
+#        INSTALL_DIR=/path ./install.sh   自定义安装目录
+# 重复执行即为升级：覆盖文件 → 重启服务。
 set -e
 
-# ===== Configuration =====
+# ===== 配置项 =====
 SERVICE_NAME="monitor"
 BINARY_NAME="monitor_server"
 INSTALL_DIR="${INSTALL_DIR:-/opt/orangepi-monitor}"
 ENV_FILE="/etc/default/monitor"
 
 echo "------------------------------------------------"
-echo "🚀 Orange Pi monitor install"
-echo "   Install dir: $INSTALL_DIR"
+echo "🚀 Orange Pi 监控服务安装"
+echo "   安装目录: $INSTALL_DIR"
 echo "------------------------------------------------"
 
-# ===== Pre-flight checks: a runnable package must be present =====
+# ===== 前置检查：当前目录必须有可执行包 =====
 if [ ! -f "$BINARY_NAME" ]; then
-    echo "❌ $BINARY_NAME not found in the current directory."
-    echo "   From source:    run ./build.sh (it compiles and installs in one go)"
-    echo "   From a release: download a tarball from GitHub Releases and extract it first"
+    echo "❌ 当前目录未找到 $BINARY_NAME。"
+    echo "   源码用户:    先执行 ./build.sh（编译并安装一步到位）"
+    echo "   Release 用户: 先从 GitHub Releases 下载压缩包并解压"
     exit 1
 fi
 
-# Real user: handle sudo execution so the service does not run as root
+# 真实用户：处理 sudo 执行的场景，避免服务以 root 运行
 RUN_USER="${SUDO_USER:-$USER}"
 if [ -z "$RUN_USER" ] || [ "$RUN_USER" = "root" ]; then
-    echo "❌ Cannot determine a non-root run user. Run this script as a regular user (sudo is invoked as needed)"
+    echo "❌ 无法确定非 root 运行用户，请以普通用户身份执行本脚本（安装过程会按需调用 sudo）"
     exit 1
 fi
 RUN_GROUP="$(id -gn "$RUN_USER")"
-echo "   Run user:    $RUN_USER"
+echo "   运行用户: $RUN_USER"
 
-# ===== 1. Stop the old service (replacing a running binary triggers ETXTBSY) =====
+# ===== 1. 停止旧服务（避免替换运行中的二进制触发 ETXTBSY） =====
 if systemctl list-unit-files "$SERVICE_NAME.service" 2>/dev/null | grep -q "$SERVICE_NAME"; then
-    echo "⏸️  Stopping the old service (if running)..."
+    echo "⏸️  停止旧服务（若在运行）..."
     sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 fi
 
-# ===== 2. Install the binary into the runtime directory =====
-echo "📁 Installing the binary into $INSTALL_DIR ..."
+# ===== 2. 安装二进制到运行目录 =====
+echo "📁 正在安装二进制到 $INSTALL_DIR ..."
 sudo mkdir -p "$INSTALL_DIR"
 sudo install -m 755 "$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
 sudo chown -R "$RUN_USER:$RUN_GROUP" "$INSTALL_DIR"
 
-# ===== 3. Write the systemd unit file =====
-echo "📝 Generating the systemd service configuration..."
+# ===== 3. 写入 systemd 服务文件 =====
+echo "📝 正在生成系统服务配置..."
 sudo tee "/etc/systemd/system/$SERVICE_NAME.service" >/dev/null <<EOT
 [Unit]
 Description=Orange Pi System Monitor Service
@@ -64,15 +62,15 @@ EnvironmentFile=-$ENV_FILE
 ExecStart=$INSTALL_DIR/$BINARY_NAME
 Restart=always
 RestartSec=5
-# Logs go to journald; view with: journalctl -u monitor -f
+# 日志走 journald，查看: journalctl -u monitor -f
 
 [Install]
 WantedBy=multi-user.target
 EOT
 
-# ===== 4. Create the default environment file (only if missing; never overwrite) =====
+# ===== 4. 生成默认环境变量文件（若不存在，不覆盖已有配置） =====
 if [ ! -f "$ENV_FILE" ]; then
-    echo "🔐 Creating the default security configuration: $ENV_FILE"
+    echo "🔐 正在创建默认安全配置文件: $ENV_FILE"
     sudo tee "$ENV_FILE" >/dev/null <<EOT
 MONITOR_LISTEN_ADDR=127.0.0.1:8080
 # MONITOR_BASIC_AUTH_USER=admin
@@ -81,20 +79,20 @@ MONITOR_LISTEN_ADDR=127.0.0.1:8080
 EOT
 fi
 
-# ===== 5. Start the service =====
-echo "⚙️  Starting the service and enabling it on boot..."
+# ===== 5. 启动服务 =====
+echo "⚙️  正在启动服务并设置开机自启..."
 sudo systemctl daemon-reload
 sudo systemctl enable "$SERVICE_NAME"
 sudo systemctl restart "$SERVICE_NAME"
 
 if systemctl is-active --quiet "$SERVICE_NAME"; then
     echo "------------------------------------------------"
-    echo "🎉 Install complete! Service '$SERVICE_NAME' is up."
-    echo "   Local URL:  http://127.0.0.1:8080"
-    echo "   Logs:       journalctl -u $SERVICE_NAME -f"
-    echo "   Uninstall:  ./uninstall.sh"
+    echo "🎉 安装完成！服务 '$SERVICE_NAME' 已就绪。"
+    echo "   本机访问: http://127.0.0.1:8080"
+    echo "   查看日志: journalctl -u $SERVICE_NAME -f"
+    echo "   卸载:     ./uninstall.sh"
     echo "------------------------------------------------"
 else
-    echo "❌ The service is not running. Check logs: journalctl -u $SERVICE_NAME -n 50"
+    echo "❌ 服务未能正常运行，查看日志排查: journalctl -u $SERVICE_NAME -n 50"
     exit 1
 fi
