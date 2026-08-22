@@ -13,6 +13,7 @@ import (
 type Server struct {
 	collector      *Collector
 	alerter        *Alerter
+	system         SystemInfo
 	basicAuthUser  string
 	basicAuthPass  string
 	allowedOrigins map[string]struct{}
@@ -24,6 +25,7 @@ func NewServer() *Server {
 	return &Server{
 		collector:      &Collector{history: newHistory(), probe: &netProbe{}},
 		alerter:        NewAlerterFromEnv(),
+		system:         readSystemInfo(),
 		basicAuthUser:  os.Getenv("MONITOR_BASIC_AUTH_USER"),
 		basicAuthPass:  os.Getenv("MONITOR_BASIC_AUTH_PASS"),
 		allowedOrigins: origins,
@@ -107,6 +109,16 @@ func (s *Server) HistoryHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(s.collector.HistorySnapshot())
 }
 
+// SystemHandler serves the static machine identity (OS, kernel, board, CPU)
+func (s *Server) SystemHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.preflight(w, r) {
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(s.system)
+}
+
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.isAuthorized(r) {
@@ -154,6 +166,7 @@ func (s *Server) Start(addr string) {
 	// API routes
 	mux.HandleFunc("/api/stats", s.StatsHandler)
 	mux.HandleFunc("/api/history", s.HistoryHandler)
+	mux.HandleFunc("/api/system", s.SystemHandler)
 
 	// Start fixed-period background collection; the API only reads snapshots
 	s.collector.Start()
