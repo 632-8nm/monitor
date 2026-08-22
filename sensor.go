@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 const (
@@ -39,8 +41,10 @@ type SystemStats struct {
 	MemSummary   string        `json:"mem_summary"`
 	SwapUsage    float64       `json:"swap_usage"`
 	SwapSummary  string        `json:"swap_summary"`
-	DiskUsage    float64       `json:"disk_usage"`
+	DiskUsage    float64       `json:"disk_usage"` // root mount, used by alerting
 	DiskSummary  string        `json:"disk_summary"`
+	DiskMounts   []MountUsage  `json:"disk_mounts"`
+	TopProcs     []ProcInfo    `json:"top_procs"`
 	NetDown      float64       `json:"net_down"`
 	NetUp        float64       `json:"net_up"`
 	NetTotalDown uint64        `json:"net_total_down"`
@@ -67,6 +71,22 @@ type ThermalZone struct {
 	Temp float64 `json:"temp"`
 }
 
+// MountUsage is the usage of one physical filesystem mount point.
+type MountUsage struct {
+	Mount   string  `json:"mount"`
+	Usage   float64 `json:"usage"`
+	Summary string  `json:"summary"`
+}
+
+// ProcInfo is one entry of the top-processes list — names and numbers only,
+// never command-line arguments.
+type ProcInfo struct {
+	PID  int32   `json:"pid"`
+	Name string  `json:"name"`
+	CPU  float64 `json:"cpu"`
+	Mem  float64 `json:"mem"`
+}
+
 type Collector struct {
 	mu      sync.Mutex
 	current SystemStats
@@ -79,6 +99,9 @@ type Collector struct {
 	prevDiskRead  uint64
 	prevDiskWrite uint64
 	lastUpdate    time.Time
+	// Persistent process objects so CPUPercent() reports the delta since
+	// the previous slow tick instead of a lifetime average
+	procPrev map[int32]*process.Process
 }
 
 // Start launches the background collection loops: one synchronous sample of
@@ -299,8 +322,32 @@ func (c *Collector) collectSlow() {
 
 	thermals := readThermals()
 	cpuTemp := c.GetCPUTemp()
-	diskStat, _ := disk.Usage("/")
 	uptime, _ := host.Uptime()
+
+	// Physical mount points (/, /var/log, external drives...)
+	var mounts []MountUsage
+	var rootUsage float64
+	var rootSummary string
+	if parts, err := disk.Partitions(false); err == nil {
+		for _, m := range parts {
+			u, err := disk.Usage(m.Mountpoint)
+			if err != nil || u == nil || u.Total == 0 {
+				continue
+			}
+			mounts = append(mounts, MountUsage{
+				Mount:   m.Mountpoint,
+				Usage:   u.UsedPercent,
+				Summary: fmt.Sprintf("%.1f / %.1f GB", float64(u.Used)/1e9, float64(u.Total)/1e9),
+			})
+			if m.Mountpoint == "/" {
+				rootUsage = u.UsedPercent
+				rootSummary = fmt.Sprintf("%.1f / %.1f GB", float64(u.Used)/1e9, float64(u.Total)/1e9)
+			}
+			if len(mounts) >= 6 {
+				break
+			}
+		}
+	}
 
 	c.mu.Lock()
 	s := c.current
@@ -310,9 +357,50 @@ func (c *Collector) collectSlow() {
 	s.ConnEstab = estab
 	s.ConnListen = listen
 	s.ConnTimeWait = timewait
-	s.DiskUsage = diskStat.UsedPercent
-	s.DiskSummary = fmt.Sprintf("%.2f / %.2f GB", float64(diskStat.Used)/1e9, float64(diskStat.Total)/1e9)
+	s.DiskUsage = rootUsage
+	s.DiskSummary = rootSummary
+	s.DiskMounts = mounts
+	s.TopProcs = c.topProcs()
 	s.Uptime = uptime
 	c.current = s
 	c.mu.Unlock()
+}
+
+// topProcs returns the five processes with the highest CPU usage over the
+// last slow interval. Process objects are kept across calls so CPUPercent()
+// computes a per-interval delta rather than a lifetime average.
+func (c *Collector) topProcs() []ProcInfo {
+	pids, err := process.Pids()
+	if err != nil {
+		return nil
+	}
+	if c.procPrev == nil {
+		c.procPrev = make(map[int32]*process.Process)
+	}
+	alive := make(map[int32]*process.Process, len(pids))
+	stats := make([]ProcInfo, 0, len(pids))
+	for _, pid := range pids {
+		p, ok := c.procPrev[pid]
+		if !ok {
+			var err error
+			p, err = process.NewProcess(pid)
+			if err != nil {
+				continue
+			}
+		}
+		alive[pid] = p
+		name, err := p.Name()
+		if err != nil || name == "" {
+			continue
+		}
+		cpu, _ := p.CPUPercent()
+		mem, _ := p.MemoryPercent()
+		stats = append(stats, ProcInfo{PID: pid, Name: name, CPU: cpu, Mem: float64(mem)})
+	}
+	c.procPrev = alive
+	sort.Slice(stats, func(i, j int) bool { return stats[i].CPU > stats[j].CPU })
+	if len(stats) > 5 {
+		stats = stats[:5]
+	}
+	return stats
 }

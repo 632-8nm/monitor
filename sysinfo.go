@@ -45,11 +45,11 @@ func readSystemInfo() SystemInfo {
 	return info
 }
 
-// readOSName builds the OS line the way fastfetch renders it:
-// "<NAME> <debian_version> (<codename>) <arch>", e.g.
-// "Debian GNU/Linux 12.6 (bookworm) aarch64". /etc/debian_version carries
-// the point release that VERSION_ID lacks; falls back to platform info on
-// systems without os-release (e.g. Windows dev machines).
+// readOSName builds a compact OS line: "<distro> <version> <arch>", e.g.
+// "Debian 12.6 aarch64". The distro is the first word of os-release NAME
+// (dropping the "GNU/Linux" suffix); the version prefers /etc/debian_version
+// because VERSION_ID lacks the point release. Falls back to platform info
+// on systems without os-release (e.g. Windows dev machines).
 func readOSName(hi *host.InfoStat) string {
 	fields := make(map[string]string)
 	if raw, err := os.ReadFile("/etc/os-release"); err == nil {
@@ -69,13 +69,11 @@ func readOSName(hi *host.InfoStat) string {
 
 	var parts []string
 	if name := fields["NAME"]; name != "" {
-		parts = append(parts, name)
+		distro := strings.Fields(name)[0]
+		parts = append(parts, distro)
 	}
 	if version != "" {
 		parts = append(parts, version)
-	}
-	if codename := fields["VERSION_CODENAME"]; codename != "" {
-		parts = append(parts, "("+codename+")")
 	}
 	if len(parts) == 0 {
 		return strings.TrimSpace(hi.Platform + " " + hi.PlatformVersion)
