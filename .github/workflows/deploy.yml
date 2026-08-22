@@ -21,7 +21,7 @@ jobs:
 
       - name: Cross-compile for arm64
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-w -X orangepi-monitor.Version=main-$(git rev-parse --short HEAD)" -o monitor_server ./cmd/monitor
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-w -X orangepi-monitor/internal/monitor.Version=main-$(git rev-parse --short HEAD)" -o monitor_server ./cmd/monitor
           file monitor_server
           chmod +x monitor_server
 

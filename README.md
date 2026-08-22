@@ -15,19 +15,21 @@
 ## 项目结构
 
 ```
-├── cmd/monitor/main.go   # 程序入口（package main）
-├── sensor.go             # 指标采集（后台固定周期采样）
-├── history.go            # 24h 趋势环形缓冲（内存态）
-├── server.go             # HTTP 服务（API + 内嵌前端）
-├── assets.go             # go:embed 前端资源声明
-├── web/                  # 前端源文件（编译时嵌入二进制）
-├── build.sh              # 源码编译 + 安装（本机自建入口）
-├── install.sh            # 安装预编译二进制 + 注册 systemd 服务
-├── uninstall.sh          # 卸载上述全部产物
-└── .github/workflows/    # deploy.yml（CI/CD 部署）、release.yml（tag 发版）
+├── cmd/monitor/            # 程序入口（package main）
+├── internal/monitor/       # 核心库包（package monitor）
+│   ├── sensor.go           # 指标采集（快档 2s / 慢档 10s 分层）
+│   ├── history.go          # 24h 趋势环形缓冲（纯内存）
+│   ├── server.go           # HTTP 服务（API + 内嵌前端）
+│   ├── alert.go            # Server酱 告警（阈值 / 冷却 / 恢复通知）
+│   ├── probe.go            # 外网连通性探测
+│   ├── sysinfo.go          # 静态系统信息（OS / 板型 / SoC / 版本）
+│   ├── assets.go           # go:embed 前端资源声明
+│   └── web/                # 前端源文件（编译时嵌入二进制）
+├── build.sh                # 源码编译 + 安装（本机自建入口）
+├── install.sh              # 安装预编译二进制 + 注册 systemd 服务
+├── uninstall.sh            # 卸载上述全部产物
+└── .github/workflows/      # deploy.yml（CI/CD 部署）、release.yml（tag 发版）
 ```
-
-> 根目录的 Go 文件组成库包 `package monitor`，`cmd/monitor` 是唯一的 `main` 包。
 
 ## 核心架构
 

@@ -12,8 +12,8 @@ if ! command -v go >/dev/null 2>&1; then
     exit 1
 fi
 
-if [ ! -f go.mod ] || ! ls ./*.go >/dev/null 2>&1; then
-    echo "❌ 当前目录不是项目源码根目录（缺少 go.mod 或 *.go 文件）"
+if [ ! -f go.mod ] || [ ! -d cmd/monitor ]; then
+    echo "❌ 当前目录不是项目源码根目录（缺少 go.mod 或 cmd/monitor 目录）"
     echo "   请 cd 到仓库根目录后重新执行：./build.sh"
     exit 1
 fi
@@ -21,7 +21,7 @@ fi
 # ===== 编译 =====
 VERSION_VAL="local-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d)"
 echo "📦 正在编译 Go 后端 (版本: $VERSION_VAL)..."
-CGO_ENABLED=0 go build -trimpath -ldflags="-w -X orangepi-monitor.Version=$VERSION_VAL" -o monitor_server ./cmd/monitor
+CGO_ENABLED=0 go build -trimpath -ldflags="-w -X orangepi-monitor/internal/monitor.Version=$VERSION_VAL" -o monitor_server ./cmd/monitor
 chmod +x monitor_server
 echo "✅ 编译成功: monitor_server"
 
