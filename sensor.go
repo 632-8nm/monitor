@@ -38,7 +38,16 @@ type SystemStats struct {
 	DiskSummary  string        `json:"disk_summary"`
 	NetDown      float64       `json:"net_down"`
 	NetUp        float64       `json:"net_up"`
+	NetTotalDown uint64        `json:"net_total_down"`
+	NetTotalUp   uint64        `json:"net_total_up"`
+	NetDropped   uint64        `json:"net_dropped"`
+	NetErrors    uint64        `json:"net_errors"`
+	NetOnline    bool          `json:"net_online"`
+	NetLatencyMs float64       `json:"net_latency_ms"`
 	Connections  uint64        `json:"connections"`
+	ConnEstab    uint64        `json:"conn_established"`
+	ConnListen   uint64        `json:"conn_listen"`
+	ConnTimeWait uint64        `json:"conn_timewait"`
 	MemAvailable uint64        `json:"mem_available"`
 	MemCached    uint64        `json:"mem_cached"`
 	DiskRead     float64       `json:"disk_read"`
@@ -57,6 +66,7 @@ type Collector struct {
 	mu      sync.Mutex
 	current SystemStats
 	history *history
+	probe   *netProbe
 
 	// Delta state below is only accessed from the collector goroutine; no lock needed
 	prevNetRecv   uint64
@@ -68,8 +78,10 @@ type Collector struct {
 
 // Start launches the background collection loop: one synchronous sample first
 // establishes the delta baseline, then snapshots refresh at a fixed period;
-// API requests read them through Snapshot.
+// API requests read them through Snapshot. The internet reachability probe
+// runs on its own schedule.
 func (c *Collector) Start() {
+	c.probe.start()
 	c.collect()
 	go func() {
 		ticker := time.NewTicker(collectInterval)
@@ -188,10 +200,13 @@ func (c *Collector) collect() {
 	prevUpdate := c.lastUpdate
 	duration := now.Sub(prevUpdate).Seconds()
 
-	// Network rates
+	// Network rates + cumulative counters (since boot) + drop/error counters
 	io, _ := net.IOCounters(false)
 	var downSpeed, upSpeed float64
+	var totalDown, totalUp, dropped, errs uint64
 	if len(io) > 0 {
+		totalDown, totalUp = io[0].BytesRecv, io[0].BytesSent
+		dropped, errs = io[0].Dropin+io[0].Dropout, io[0].Errin+io[0].Errout
 		if duration > 0 && !prevUpdate.IsZero() {
 			downSpeed = float64(io[0].BytesRecv-c.prevNetRecv) / 1024 / duration
 			upSpeed = float64(io[0].BytesSent-c.prevNetSent) / 1024 / duration
@@ -200,8 +215,20 @@ func (c *Collector) collect() {
 		c.prevNetSent = io[0].BytesSent
 	}
 
+	// TCP connections broken down by state (counts only, never endpoints)
 	connections, _ := net.Connections("tcp")
-	connCount := uint64(len(connections))
+	var connCount, estab, listen, timewait uint64
+	for _, cn := range connections {
+		switch cn.Status {
+		case "ESTABLISHED":
+			estab++
+		case "LISTEN":
+			listen++
+		case "TIME_WAIT":
+			timewait++
+		}
+		connCount++
+	}
 
 	// Disk I/O rates
 	diskIO, _ := disk.IOCounters()
@@ -246,7 +273,16 @@ func (c *Collector) collect() {
 		DiskWrite:    diskWriteSpeed,
 		NetDown:      downSpeed,
 		NetUp:        upSpeed,
+		NetTotalDown: totalDown,
+		NetTotalUp:   totalUp,
+		NetDropped:   dropped,
+		NetErrors:    errs,
+		NetOnline:    c.probe.online.Load(),
+		NetLatencyMs: float64(c.probe.rttMs.Load()),
 		Connections:  connCount,
+		ConnEstab:    estab,
+		ConnListen:   listen,
+		ConnTimeWait: timewait,
 		Uptime:       uptime,
 	}
 
