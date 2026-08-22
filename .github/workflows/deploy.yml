@@ -21,7 +21,7 @@ jobs:
 
       - name: Cross-compile for arm64
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o monitor_server .
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-w" -o monitor_server .
           file monitor_server
           chmod +x monitor_server
 
@@ -103,16 +103,18 @@ jobs:
             echo 'monitor stopped'
           "
 
+          # Bundle everything into a single compressed stream: one SSH
+          # connection through the tunnel instead of per-file scp round trips
+          # (gzip shrinks the binary to roughly a third of its size)
           echo "==> Transferring deployment files (binary + frontend) to the board"
-          # Make sure the deploy directory exists
-          ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+          tar -czf - monitor_server index.html static | ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
-            mkdir -p $DEPLOY_DIR/static
+            set -e
+            mkdir -p $DEPLOY_DIR
+            rm -rf $DEPLOY_DIR/static
+            tar -xzf - -C $DEPLOY_DIR
+            chmod +x $DEPLOY_DIR/monitor_server
           "
-          scp -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=15 -P 2222 monitor_server index.html orangepi@127.0.0.1:$DEPLOY_DIR/
-          scp -r -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=15 -P 2222 static/ orangepi@127.0.0.1:$DEPLOY_DIR/
 
           echo "==> Starting the monitor service over SSH"
           ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
