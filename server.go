@@ -22,7 +22,7 @@ type Server struct {
 func NewServer() *Server {
 	origins := parseAllowedOrigins(os.Getenv("MONITOR_ALLOWED_ORIGINS"))
 	return &Server{
-		collector:      &Collector{history: newHistory()},
+		collector:      &Collector{history: newHistory(), probe: &netProbe{}},
 		alerter:        NewAlerterFromEnv(),
 		basicAuthUser:  os.Getenv("MONITOR_BASIC_AUTH_USER"),
 		basicAuthPass:  os.Getenv("MONITOR_BASIC_AUTH_PASS"),

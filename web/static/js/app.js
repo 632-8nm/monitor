@@ -70,10 +70,19 @@
 			document.getElementById('swap-bar').style.width = (data.swap_usage || 0) + '%';
 			document.getElementById('swap-summary').innerText = data.swap_summary || '0 / 0 GB';
 
-			// 网络
+			// 网络（速率 + 累计 + 连接细分 + 丢包 + 外网连通）
 			document.getElementById('net-down').innerText = data.net_down.toFixed(1);
 			document.getElementById('net-up').innerText = data.net_up.toFixed(1);
-			document.getElementById('net-conns').innerText = data.connections || 0;
+			document.getElementById('net-total').innerText =
+				`↓ ${this.formatBytes(data.net_total_down || 0)} · ↑ ${this.formatBytes(data.net_total_up || 0)}`;
+			document.getElementById('net-conns').innerText =
+				`${data.conn_established || 0} 已建立 · ${data.conn_listen || 0} 监听 · ${data.conn_timewait || 0} 等待`;
+			document.getElementById('net-drops').innerText =
+				`${data.net_dropped || 0} 丢包 · ${data.net_errors || 0} 错误`;
+			const onlineEl = document.getElementById('net-online');
+			onlineEl.innerHTML = data.net_online
+				? `<span style="color:var(--success)">正常 · ${Math.round(data.net_latency_ms)} ms</span>`
+				: '<span style="color:#ef4444">不可达</span>';
 
 			// 磁盘
 			document.getElementById('disk-usage').innerText = (data.disk_usage || 0).toFixed(1);
