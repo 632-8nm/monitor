@@ -25,6 +25,8 @@
 			<div class="progress-container">
 				<div id="cpu-bar" class="progress-bar"></div>
 			</div>
+			<div class="cpu-split-bar" id="cpu-split"></div>
+			<p class="card-subtitle" id="cpu-split-label" style="margin-top:4px;">user -- · sys -- · iowait -- · idle --</p>
 			<div class="core-grid" id="core-grid"></div>
 			<div class="load-row" style="margin-top:1rem;">
 				<div class="load-item">
@@ -73,6 +75,7 @@
 			<div class="info-row" style="margin-top:0.8rem;margin-bottom:0;"><span>累计流量</span> <span id="net-total">--</span></div>
 			<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>TCP 连接</span> <span id="net-conns">--</span></div>
 			<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>丢包 / 错误</span> <span id="net-drops">--</span></div>
+			<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>WiFi 信号</span> <span id="wifi-signal">--</span></div>
 			<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>外网连通</span> <span id="net-online">--</span></div>
 		</div>
 
@@ -84,6 +87,7 @@
 				<div id="disk-bar" class="progress-bar"></div>
 			</div>
 			<div id="disk-mounts"></div>
+			<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>I/O 质量</span> <span id="disk-quality">--</span></div>
 			<div class="net-row" style="margin-top:0.8rem;">
 				<div class="net-item">
 					<span class="net-label">读取</span>
@@ -135,7 +139,7 @@
 		<span class="status-dot"></span> 数据实时更新（趋势图数据保留在内存中，重启后重新积累）
 	</div>
 
-	<script src="static/js/app.js?v=18"></script>
+	<script src="static/js/app.js?v=20"></script>
 </body>
 
 </html>

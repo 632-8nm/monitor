@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -16,12 +17,13 @@ var Version = "dev"
 // SystemInfo is the static machine identity, read once at startup and served
 // through /api/system. Deliberately excludes hostname and IP addresses.
 type SystemInfo struct {
-	OS         string `json:"os"` // e.g. Debian GNU/Linux 12.6 (bookworm) aarch64
-	Kernel     string `json:"kernel"`
-	BoardModel string `json:"board"` // /proc/device-tree/model
-	CPUModel   string `json:"cpu"`   // SoC from device-tree compatible
-	Cores      int    `json:"cores"`
-	Version    string `json:"version"` // monitor build version
+	OS         string  `json:"os"` // e.g. Debian 12.6 aarch64
+	Kernel     string  `json:"kernel"`
+	BoardModel string  `json:"board"`       // /proc/device-tree/model
+	CPUModel   string  `json:"cpu"`         // SoC from device-tree compatible
+	CPUMaxGHz  float64 `json:"cpu_max_ghz"` // rated max frequency, 0 if unknown
+	Cores      int     `json:"cores"`
+	Version    string  `json:"version"` // monitor build version
 }
 
 func readSystemInfo() SystemInfo {
@@ -41,6 +43,15 @@ func readSystemInfo() SystemInfo {
 	}
 
 	info.CPUModel = readCPUModel()
+
+	// Rated max frequency (static spec; the live frequency lives in the
+	// processor card via /api/stats)
+	if raw, err := os.ReadFile("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"); err == nil {
+		var khz int
+		if _, err := fmt.Sscanf(strings.TrimSpace(string(raw)), "%d", &khz); err == nil && khz > 0 {
+			info.CPUMaxGHz = float64(khz) / 1e6
+		}
+	}
 
 	return info
 }

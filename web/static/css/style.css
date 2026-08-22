@@ -348,3 +348,18 @@ header h1 {
 	color: var(--text-dim);
 	white-space: nowrap;
 }
+
+/* ===== CPU 时间分解分段条 ===== */
+.cpu-split-bar {
+	display: flex;
+	height: 6px;
+	border-radius: 3px;
+	overflow: hidden;
+	margin-top: 0.6rem;
+}
+
+.cpu-split-bar span {
+	display: block;
+	height: 100%;
+	transition: width 0.5s ease;
+}
