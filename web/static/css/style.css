@@ -301,3 +301,22 @@ header h1 {
 	color: var(--text-dim);
 	margin-top: 3px;
 }
+
+/* ===== 处理器卡片头部（占用率与温度同行） ===== */
+.cpu-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.cpu-temp {
+	font-size: 1.3rem;
+	font-weight: 800;
+	text-align: right;
+	white-space: nowrap;
+}
+
+.temp-sep {
+	color: var(--text-dim);
+}
