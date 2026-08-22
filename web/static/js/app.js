@@ -14,29 +14,57 @@
 			return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
 		},
 
+		// 温度区：优先用后端枚举的 sysfs 热区（CPU/NPU 等），为空则退回 cpu_temp 字段
+		renderThermals(data) {
+			const box = document.getElementById('thermal-rows');
+			const zones = (data.thermals && data.thermals.length)
+				? data.thermals.map(z => ({ label: z.type, value: z.temp }))
+				: [{ label: 'cpu', value: parseFloat(data.cpu_temp) || 0 }];
+			box.innerHTML = zones.map(z => {
+				const hot = z.value > 60;
+				return `<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;">
+					<span>${z.label} 温度</span>
+					<span style="color:${hot ? '#ef4444' : 'var(--text-main)'}">${z.value.toFixed(1)}°C</span>
+				</div>`;
+			}).join('');
+		},
+
+		// 每核占用：竖条迷你柱状图，核数固定后复用已有 DOM
+		renderCores(cores) {
+			const grid = document.getElementById('core-grid');
+			if (!cores || !cores.length) { grid.innerHTML = ''; return; }
+			if (grid.childElementCount !== cores.length) {
+				grid.innerHTML = cores.map((_, i) => `
+					<div class="core-cell">
+						<div class="core-bar-bg"><div class="core-bar" id="core-bar-${i}"></div></div>
+						<span class="core-label">核${i}</span>
+					</div>`).join('');
+			}
+			cores.forEach((v, i) => {
+				const bar = document.getElementById(`core-bar-${i}`);
+				if (bar) bar.style.height = Math.min(100, Math.max(0, v)) + '%';
+			});
+		},
+
 		updateAll(data) {
-			// CPU
+			// 处理器（总占用 / 频率 / 温度区 / 每核 / 负载）
 			document.getElementById('cpu-usage').innerText = data.cpu_usage.toFixed(1);
 			document.getElementById('cpu-bar').style.width = data.cpu_usage + '%';
 			document.getElementById('cpu-freq').innerText = Math.round(data.cpu_freq);
-			const tempEl = document.getElementById('cpu-temp');
-			tempEl.innerText = data.cpu_temp;
-			tempEl.style.color = parseFloat(data.cpu_temp) > 60 ? '#ef4444' : '#f8fafc';
+			this.renderThermals(data);
+			this.renderCores(data.cpu_cores);
 
-			// 负载
 			document.getElementById('load-1').innerText = (data.load_1 || 0).toFixed(2);
 			document.getElementById('load-5').innerText = (data.load_5 || 0).toFixed(2);
 			document.getElementById('load-15').innerText = (data.load_15 || 0).toFixed(2);
 
-			// 内存
+			// 内存 / 交换
 			document.getElementById('mem-usage').innerText = data.mem_usage.toFixed(1);
 			document.getElementById('mem-bar').style.width = data.mem_usage + '%';
 			document.getElementById('mem-summary').innerText = data.mem_summary;
 			document.getElementById('mem-avail').innerText = this.formatBytes(data.mem_available);
 			document.getElementById('mem-cached').innerText = this.formatBytes(data.mem_cached);
-
-			// Swap
-			document.getElementById('swap-usage').innerText = (data.swap_usage || 0).toFixed(1);
+			document.getElementById('swap-usage').innerText = (data.swap_usage || 0).toFixed(1) + '%';
 			document.getElementById('swap-bar').style.width = (data.swap_usage || 0) + '%';
 			document.getElementById('swap-summary').innerText = data.swap_summary || '0 / 0 GB';
 
@@ -52,11 +80,9 @@
 			document.getElementById('disk-read').innerText = (data.disk_read || 0).toFixed(1);
 			document.getElementById('disk-write').innerText = (data.disk_write || 0).toFixed(1);
 
-			// 运行时间
-			document.getElementById('uptime').innerText = this.formatUptime(data.uptime || 0);
-
+			// 页头：运行时间 + 状态 + 最后更新
 			document.getElementById('local-time').innerText =
-				`系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
+				`已运行 ${this.formatUptime(data.uptime || 0)} | 系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
 		}
 	};
 
