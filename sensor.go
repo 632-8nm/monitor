@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +32,10 @@ const (
 type SystemStats struct {
 	CPUTemp      string        `json:"cpu_temp"`
 	CPUUsage     float64       `json:"cpu_usage"`
+	CPUUser      float64       `json:"cpu_user"`
+	CPUSys       float64       `json:"cpu_sys"`
+	CPUIOWait    float64       `json:"cpu_iowait"`
+	CPUIdle      float64       `json:"cpu_idle"`
 	CPUFreq      float64       `json:"cpu_freq"`
 	Cores        []float64     `json:"cpu_cores"`
 	Thermals     []ThermalZone `json:"thermals"`
@@ -44,6 +49,10 @@ type SystemStats struct {
 	DiskUsage    float64       `json:"disk_usage"` // root mount, used by alerting
 	DiskSummary  string        `json:"disk_summary"`
 	DiskMounts   []MountUsage  `json:"disk_mounts"`
+	DiskBusy     float64       `json:"disk_busy"`       // % of time busy over the last slow interval
+	DiskLatency  float64       `json:"disk_latency_ms"` // average I/O latency
+	DiskIOPS     float64       `json:"disk_iops"`
+	WifiLink     float64       `json:"wifi_link"` // link quality (0 = no wireless)
 	TopProcs     []ProcInfo    `json:"top_procs"`
 	NetDown      float64       `json:"net_down"`
 	NetUp        float64       `json:"net_up"`
@@ -102,6 +111,17 @@ type Collector struct {
 	// Persistent process objects so CPUPercent() reports the delta since
 	// the previous slow tick instead of a lifetime average
 	procPrev map[int32]*process.Process
+	// Previous cumulative cpu.Times for the user/sys/iowait split
+	cpuPrev struct {
+		ok                              bool
+		user, sys, iowait, steal, total float64
+	}
+	// Previous cumulative disk stats for busy%/latency over the slow interval
+	diskPrev struct {
+		ok                  bool
+		ioTime, rwTime, ops uint64
+		at                  time.Time
+	}
 }
 
 // Start launches the background collection loops: one synchronous sample of
@@ -178,6 +198,54 @@ func usefulThermal(zoneType string) bool {
 	return strings.Contains(t, "cpu") || strings.Contains(t, "npu")
 }
 
+// physicalDisk reports whether a disk name is a real device rather than a
+// loop device or zram, which would skew I/O quality numbers.
+func physicalDisk(name string) bool {
+	for _, p := range []string{"mmc", "sd", "nvme", "vd", "hd"} {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// readWiFiLink returns the wireless link quality from /proc/net/wireless
+// (0 means no wireless interface). This board's driver reports quality out
+// of 70 and leaves the dBm columns at placeholder values (-256), so quality
+// is the only usable signal-strength metric.
+func readWiFiLink() float64 {
+	raw, err := os.ReadFile("/proc/net/wireless")
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		iface := strings.TrimSuffix(fields[0], ":")
+		if !strings.HasPrefix(iface, "wlan") && !strings.HasPrefix(iface, "wl") {
+			continue
+		}
+		// fields: iface status link level noise ...
+		quality, err := strconv.ParseFloat(fields[2], 64)
+		if err != nil || quality <= 0 {
+			continue
+		}
+		return quality
+	}
+	return 0
+}
+
+// fmtDiskSize renders used/total with a unit that fits small partitions
+// (a 46 MB /var/log would read "0.0 GB" otherwise).
+func fmtDiskSize(used, total float64) string {
+	if total < 1e9 {
+		return fmt.Sprintf("%.0f / %.0f MB", used/1e6, total/1e6)
+	}
+	return fmt.Sprintf("%.1f / %.1f GB", used/1e9, total/1e9)
+}
+
 // readThermals enumerates /sys/class/thermal/thermal_zone* so the dashboard
 // can show the CPU/NPU temperature sources the board exposes.
 // Returns nil on platforms without sysfs (e.g. Windows dev machines).
@@ -227,6 +295,25 @@ func (c *Collector) collectFast() {
 	if len(perCore) > 0 {
 		usage /= float64(len(perCore))
 	}
+
+	// CPU time breakdown (user/sys/iowait/idle) from cumulative deltas
+	var userPct, sysPct, ioPct, idlePct float64
+	if times, err := cpu.Times(false); err == nil && len(times) > 0 {
+		t := times[0]
+		total := t.Total()
+		if c.cpuPrev.ok && total > c.cpuPrev.total {
+			elapsed := total - c.cpuPrev.total
+			userPct = ((t.User + t.Nice) - c.cpuPrev.user) / elapsed * 100
+			sysPct = (t.System - c.cpuPrev.sys) / elapsed * 100
+			ioPct = ((t.Iowait - c.cpuPrev.iowait) + (t.Steal - c.cpuPrev.steal)) / elapsed * 100
+			idlePct = 100 - userPct - sysPct - ioPct
+			if idlePct < 0 {
+				idlePct = 0
+			}
+		}
+		c.cpuPrev.ok, c.cpuPrev.user, c.cpuPrev.sys = true, t.User+t.Nice, t.System
+		c.cpuPrev.iowait, c.cpuPrev.steal, c.cpuPrev.total = t.Iowait, t.Steal, total
+	}
 	v, _ := mem.VirtualMemory()
 	swap, _ := mem.SwapMemory()
 	loadAvg, _ := load.Avg()
@@ -275,6 +362,10 @@ func (c *Collector) collectFast() {
 	c.mu.Lock()
 	s := c.current
 	s.CPUUsage = usage
+	s.CPUUser = userPct
+	s.CPUSys = sysPct
+	s.CPUIOWait = ioPct
+	s.CPUIdle = idlePct
 	s.CPUFreq = c.GetCPUFreq()
 	s.Cores = perCore
 	s.Load1, s.Load5, s.Load15 = load1, load5, load15
@@ -320,28 +411,69 @@ func (c *Collector) collectSlow() {
 		connCount++
 	}
 
+	// Disk I/O quality over the slow interval: busy% from IoTime deltas,
+	// average latency from Read/Write time deltas, plus IOPS. Only
+	// physical devices count (loop/zram would skew the numbers).
+	var busyPct, latencyMs, iops float64
+	ioStats, _ := disk.IOCounters()
+	var ioTime, rwTime, ops uint64
+	for name, d := range ioStats {
+		if !physicalDisk(name) {
+			continue
+		}
+		ioTime += d.IoTime
+		rwTime += d.ReadTime + d.WriteTime
+		ops += d.ReadCount + d.WriteCount
+	}
+	nowSlow := time.Now()
+	if c.diskPrev.ok && ioTime >= c.diskPrev.ioTime {
+		seconds := nowSlow.Sub(c.diskPrev.at).Seconds()
+		if seconds > 0 {
+			busyPct = float64(ioTime-c.diskPrev.ioTime) / 1000 / seconds * 100
+			if busyPct > 100 {
+				busyPct = 100
+			}
+			dOps := ops - c.diskPrev.ops
+			iops = float64(dOps) / seconds
+			if dOps > 0 {
+				latencyMs = float64(rwTime-c.diskPrev.rwTime) / float64(dOps)
+			}
+		}
+	}
+	c.diskPrev.ok, c.diskPrev.ioTime, c.diskPrev.rwTime, c.diskPrev.ops, c.diskPrev.at =
+		true, ioTime, rwTime, ops, nowSlow
+
 	thermals := readThermals()
 	cpuTemp := c.GetCPUTemp()
 	uptime, _ := host.Uptime()
+	wifiLink := readWiFiLink()
 
-	// Physical mount points (/, /var/log, external drives...)
+	// Physical mount points (/, /var/log, external drives...). Bind mounts
+	// like /var/log.hdd share the root device — dedupe by device so only
+	// the first mount of each device is shown.
 	var mounts []MountUsage
 	var rootUsage float64
 	var rootSummary string
+	seenDevices := make(map[string]bool)
 	if parts, err := disk.Partitions(false); err == nil {
 		for _, m := range parts {
+			if seenDevices[m.Device] {
+				continue
+			}
 			u, err := disk.Usage(m.Mountpoint)
 			if err != nil || u == nil || u.Total == 0 {
 				continue
 			}
+			seenDevices[m.Device] = true
+			summary := fmtDiskSize(float64(u.Used), float64(u.Total))
 			mounts = append(mounts, MountUsage{
 				Mount:   m.Mountpoint,
 				Usage:   u.UsedPercent,
-				Summary: fmt.Sprintf("%.1f / %.1f GB", float64(u.Used)/1e9, float64(u.Total)/1e9),
+				Summary: summary,
 			})
 			if m.Mountpoint == "/" {
 				rootUsage = u.UsedPercent
-				rootSummary = fmt.Sprintf("%.1f / %.1f GB", float64(u.Used)/1e9, float64(u.Total)/1e9)
+				rootSummary = summary
 			}
 			if len(mounts) >= 6 {
 				break
@@ -360,6 +492,10 @@ func (c *Collector) collectSlow() {
 	s.DiskUsage = rootUsage
 	s.DiskSummary = rootSummary
 	s.DiskMounts = mounts
+	s.DiskBusy = busyPct
+	s.DiskLatency = latencyMs
+	s.DiskIOPS = iops
+	s.WifiLink = wifiLink
 	s.TopProcs = c.topProcs()
 	s.Uptime = uptime
 	c.current = s

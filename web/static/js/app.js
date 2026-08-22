@@ -56,6 +56,21 @@
 			this.renderTempBadge(data);
 			this.renderCores(data.cpu_cores);
 
+			// CPU 时间分解条（user/sys/iowait/idle 分段）
+			const splitEl = document.getElementById('cpu-split');
+			if (splitEl) {
+				const segs = [
+					{ v: data.cpu_user || 0, c: '#38bdf8' },
+					{ v: data.cpu_sys || 0, c: '#818cf8' },
+					{ v: data.cpu_iowait || 0, c: '#f87171' },
+					{ v: data.cpu_idle || 0, c: 'rgba(255,255,255,0.15)' }
+				];
+				splitEl.innerHTML = segs.map(s =>
+					`<span style="width:${Math.max(0, s.v)}%;background:${s.c};"></span>`).join('');
+				document.getElementById('cpu-split-label').innerText =
+					`user ${(data.cpu_user || 0).toFixed(0)}% · sys ${(data.cpu_sys || 0).toFixed(0)}% · iowait ${(data.cpu_iowait || 0).toFixed(0)}% · idle ${(data.cpu_idle || 0).toFixed(0)}%`;
+			}
+
 			document.getElementById('load-1').innerText = (data.load_1 || 0).toFixed(2);
 			document.getElementById('load-5').innerText = (data.load_5 || 0).toFixed(2);
 			document.getElementById('load-15').innerText = (data.load_15 || 0).toFixed(2);
@@ -84,6 +99,17 @@
 				? `<span style="color:var(--success)">正常 · ${Math.round(data.net_latency_ms)} ms</span>`
 				: '<span style="color:#ef4444">不可达</span>';
 
+			// WiFi 链路质量（此驱动不报 dBm，质量满值 70）
+			const wifiEl = document.getElementById('wifi-signal');
+			if (data.wifi_link && data.wifi_link > 0) {
+				const q = Math.min(100, data.wifi_link / 70 * 100);
+				const grade = q >= 85 ? '优秀' : q >= 70 ? '良好' : q >= 55 ? '一般' : '较差';
+				const color = q >= 70 ? 'var(--success)' : q >= 55 ? '#f59e0b' : '#ef4444';
+				wifiEl.innerHTML = `<span style="color:${color}">${data.wifi_link.toFixed(0)}/70 · ${grade}</span>`;
+			} else {
+				wifiEl.innerText = '未检测到';
+			}
+
 			// 磁盘（根占用大数值 + 其余挂载点行）
 			document.getElementById('disk-usage').innerText = (data.disk_usage || 0).toFixed(1);
 			document.getElementById('disk-bar').style.width = (data.disk_usage || 0) + '%';
@@ -97,6 +123,10 @@
 					.map(m => `<div class="info-row" style="margin-top:0.4rem;margin-bottom:0;"><span>${m.mount}</span><span>${(m.usage || 0).toFixed(1)}% · ${m.summary}</span></div>`)
 					.join('');
 			}
+			const dq = document.getElementById('disk-quality');
+			if (dq) {
+				dq.innerText = `繁忙 ${(data.disk_busy || 0).toFixed(0)}% · 延迟 ${(data.disk_latency_ms || 0).toFixed(1)}ms · ${Math.round(data.disk_iops || 0)} IOPS`;
+			}
 
 			// 进程 TOP5（名称来自 /proc，做基本转义防注入）
 			const procBox = document.getElementById('proc-rows');
@@ -105,11 +135,6 @@
 					const name = String(p.name).replace(/[<>&]/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[ch]));
 					return `<div class="proc-row"><span class="proc-name">${name}<span class="proc-pid">#${p.pid}</span></span><span class="proc-val">${(p.cpu || 0).toFixed(1)}% · ${(p.mem || 0).toFixed(1)}%</span></div>`;
 				}).join('') || '<p class="card-subtitle">--</p>';
-			}
-
-			// 系统信息卡的处理器行：SoC 型号 + 实时频率（MHz → GHz）
-			if (Sys) {
-				document.getElementById('sys-cpu').innerText = `${Sys.cpu} @ ${(data.cpu_freq / 1000).toFixed(2)} GHz`;
 			}
 
 			// 页头：运行时间 + 状态 + 最后更新
@@ -300,6 +325,10 @@
 			document.getElementById('sys-kernel').innerText = s.kernel || '--';
 			document.getElementById('sys-board').innerText = s.board || '--';
 			document.getElementById('sys-version').innerText = s.version || '--';
+			// 主频是规格参数（静态）；实时频率在处理器卡里随轮询更新
+			document.getElementById('sys-cpu').innerText = s.cpu_max_ghz > 0
+				? `${s.cpu} @ ${s.cpu_max_ghz.toFixed(2)} GHz`
+				: (s.cpu || '--');
 		} catch (error) {
 			console.error('Failed to fetch system info:', error);
 		}
