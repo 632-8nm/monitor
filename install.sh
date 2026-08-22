@@ -1,6 +1,7 @@
 #!/bin/bash
-# Installer for a ready-to-run monitor package: installs the binary and
-# frontend files into INSTALL_DIR and registers the systemd service.
+# Installer for a ready-to-run monitor package: installs the binary into
+# INSTALL_DIR and registers the systemd service. The frontend is embedded
+# in the binary, so this is the only file needed.
 # Works from either an extracted release tarball or a source tree where
 # ./build.sh has already produced the binary.
 # Usage: ./install.sh          (from the directory containing the package)
@@ -27,11 +28,6 @@ if [ ! -f "$BINARY_NAME" ]; then
     exit 1
 fi
 
-if [ ! -f index.html ] || [ ! -d static ]; then
-    echo "❌ Missing frontend files (index.html / static/); the package is incomplete"
-    exit 1
-fi
-
 # Real user: handle sudo execution so the service does not run as root
 RUN_USER="${SUDO_USER:-$USER}"
 if [ -z "$RUN_USER" ] || [ "$RUN_USER" = "root" ]; then
@@ -47,13 +43,10 @@ if systemctl list-unit-files "$SERVICE_NAME.service" 2>/dev/null | grep -q "$SER
     sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 fi
 
-# ===== 2. Install files into the runtime directory =====
-echo "📁 Installing files into $INSTALL_DIR ..."
+# ===== 2. Install the binary into the runtime directory =====
+echo "📁 Installing the binary into $INSTALL_DIR ..."
 sudo mkdir -p "$INSTALL_DIR"
-sudo rm -rf "$INSTALL_DIR/static"
 sudo install -m 755 "$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
-sudo install -m 644 index.html "$INSTALL_DIR/index.html"
-sudo cp -r static "$INSTALL_DIR/static"
 sudo chown -R "$RUN_USER:$RUN_GROUP" "$INSTALL_DIR"
 
 # ===== 3. Write the systemd unit file =====

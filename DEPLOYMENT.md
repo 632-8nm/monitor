@@ -18,13 +18,13 @@ CI/CD (GitHub cloud runner, ubuntu-latest)
    │  ② SSH into the board via Cloudflare Tunnel (ssh.<your-domain>)
    ▼
 Board (Orange Pi Zero 3)
-   │  stop service → scp binary + frontend → restart
+   │  stop service → scp binary → restart
    ▼
 /opt/orangepi-monitor/  (systemd: monitor, listening on :8080)
 ```
 
-> Note: the monitor frontend (index.html + static/) consists of standalone files (not embedded
-> in the binary); they are transferred together with the binary to /opt/orangepi-monitor/.
+> Note: the frontend is embedded into the binary (`go:embed`); deploys ship
+> the single `monitor_server` executable.
 
 ## 2. Production deployment layout
 
@@ -32,7 +32,7 @@ Board (Orange Pi Zero 3)
 |---|---|
 | Deploy directory | `/opt/orangepi-monitor/` |
 | Binary | `/opt/orangepi-monitor/monitor_server` |
-| Frontend | `/opt/orangepi-monitor/index.html` + `static/` |
+| Frontend | embedded in the binary (`go:embed`) |
 | systemd service | `monitor.service` |
 | Listen port | `8080` |
 | Public entry | `orangepi-monitor.<your-domain>` (Cloudflare Tunnel → http://localhost:8080) |

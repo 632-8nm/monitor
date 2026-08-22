@@ -19,11 +19,6 @@ if [ ! -f go.mod ] || ! ls ./*.go >/dev/null 2>&1; then
     exit 1
 fi
 
-if [ ! -f index.html ] || [ ! -d static ]; then
-    echo "❌ Missing frontend files (index.html / static/); the repository may be incomplete"
-    exit 1
-fi
-
 # ===== Build =====
 echo "📦 Building the Go backend..."
 CGO_ENABLED=0 go build -trimpath -o monitor_server .

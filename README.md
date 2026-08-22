@@ -9,13 +9,14 @@ This repository manages the system monitor program for an Orange Pi Zero3, with 
 ## Features
 
 * **Real-time monitoring**: the web dashboard shows CPU load, frequency and temperature, memory usage, uptime and live network speeds.
+* **24h trend charts**: an in-memory history (one point per 10s) feeds canvas charts for CPU, temperature, memory and network — enough to answer "why did the temperature spike last night" without any database.
 * **Fully automated deployment**: GitHub Actions cross-compiles the arm64 binary in the cloud and deploys it to the board over a Cloudflare Tunnel — just push to `main`.
-* **Self-hosted frontend**: pages are served directly by the Go backend, no separate static hosting required.
+* **Single-file deployment**: the frontend is embedded into the Go binary (`go:embed`), so releases and deploys ship exactly one executable.
 * **Power-loss resilient**: both the monitor and the tunnel client run as systemd services with auto-start on boot.
 
 ## Architecture
 
-* **Backend**: Go (Golang) + `gopsutil` (serves both the API and the static frontend)
+* **Backend**: Go (Golang) + `gopsutil` (serves the API and the embedded frontend)
 * **Frontend**: HTML5 / CSS3 / vanilla JavaScript
 * **Service management**: systemd (service name: `monitor`)
 * **Tunneling**: Cloudflare Tunnel (custom domain)
@@ -37,7 +38,7 @@ This repository manages the system monitor program for an Orange Pi Zero3, with 
 Every push to GitHub `main` triggers GitHub Actions to:
 1. Cross-compile the Go binary on a cloud runner
 2. Stop the service on the board
-3. Replace the binary and frontend files
+3. Replace the binary (the frontend is embedded in it)
 4. Restart the service
 
 No manual intervention required.
