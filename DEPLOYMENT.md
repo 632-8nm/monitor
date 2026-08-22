@@ -63,6 +63,7 @@ Board (Orange Pi Zero 3)
 |---|---|---|
 | Repository | `<your-org>/orangepi-monitor` | — |
 | Workflow | `.github/workflows/deploy.yml` | push to main triggers cloud build + deploy |
+| Workflow | `.github/workflows/release.yml` | push a `v*` tag builds & publishes the release tarball |
 | Secret: `BOARD_SSH_KEY` | board's `~/.ssh/deploy` private key | cloud SSH login to the board (shared by both projects) |
 | Secret: `CLOUDFLARED_TOKEN` | `ClientID:ClientSecret` | cloudflared access authentication (shared by both projects) |
 
