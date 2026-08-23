@@ -334,6 +334,7 @@
 			document.getElementById('sys-kernel').innerText = s.kernel || '--';
 			document.getElementById('sys-board').innerText = s.board || '--';
 			document.getElementById('sys-version').innerText = s.version || '--';
+			}
 			// 主频是规格参数（静态）；实时频率在处理器卡里随轮询更新
 			document.getElementById('sys-cpu').innerText = s.cpu_max_ghz > 0
 				? `${s.cpu} @ ${s.cpu_max_ghz.toFixed(2)} GHz`

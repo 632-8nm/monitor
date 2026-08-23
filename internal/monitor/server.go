@@ -14,6 +14,7 @@ type Server struct {
 	collector      *Collector
 	alerter        *Alerter
 	system         SystemInfo
+	terminal       bool
 	basicAuthUser  string
 	basicAuthPass  string
 	allowedOrigins map[string]struct{}
