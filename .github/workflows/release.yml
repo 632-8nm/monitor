@@ -68,6 +68,9 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No checkout in this job; tell gh which repository to operate on
+          # (it cannot infer it from a git remote that is not there)
+          GH_REPO: ${{ github.repository }}
         run: |
           TAG="${GITHUB_REF_NAME}"
           # Idempotent: re-running for an existing tag (e.g. after a force
