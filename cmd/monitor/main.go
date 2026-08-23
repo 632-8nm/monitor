@@ -5,7 +5,7 @@ package main
 import (
 	"os"
 
-	"orangepi-monitor/internal/monitor"
+	"monitor/internal/monitor"
 )
 
 func main() {

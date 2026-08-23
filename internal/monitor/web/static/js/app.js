@@ -99,9 +99,14 @@
 				? `<span style="color:var(--success)">正常 · ${Math.round(data.net_latency_ms)} ms</span>`
 				: '<span style="color:#ef4444">不可达</span>';
 
-			// WiFi 链路质量（此驱动不报 dBm，质量满值 70）
+			// WiFi：驱动报真实 dBm 时优先用 dBm 分级，否则退回链路质量（满值 70）
 			const wifiEl = document.getElementById('wifi-signal');
-			if (data.wifi_link && data.wifi_link > 0) {
+			if (data.wifi_dbm && data.wifi_dbm < 0) {
+				const d = data.wifi_dbm;
+				const grade = d >= -50 ? '优秀' : d >= -60 ? '良好' : d >= -70 ? '一般' : '较差';
+				const color = d >= -60 ? 'var(--success)' : d >= -70 ? '#f59e0b' : '#ef4444';
+				wifiEl.innerHTML = `<span style="color:${color}">${d.toFixed(0)} dBm · ${grade}</span>`;
+			} else if (data.wifi_link && data.wifi_link > 0) {
 				const q = Math.min(100, data.wifi_link / 70 * 100);
 				const grade = q >= 85 ? '优秀' : q >= 70 ? '良好' : q >= 55 ? '一般' : '较差';
 				const color = q >= 70 ? 'var(--success)' : q >= 55 ? '#f59e0b' : '#ef4444';
@@ -321,6 +326,10 @@
 			if (!response.ok) return;
 			const s = await response.json();
 			Sys = s;
+			// 页面标题跟随主板型号，多平台自动正确（OrangePi / RK 等）
+			const pageTitle = s.board ? `${s.board} 系统监控` : '系统监控';
+			document.getElementById('page-title').innerText = pageTitle;
+			document.title = pageTitle;
 			document.getElementById('sys-os').innerText = s.os || '--';
 			document.getElementById('sys-kernel').innerText = s.kernel || '--';
 			document.getElementById('sys-board').innerText = s.board || '--';

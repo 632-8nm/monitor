@@ -11,7 +11,7 @@ import (
 )
 
 // Version is the monitor's own build version, injected at compile time via
-// -ldflags "-X orangepi-monitor.Version=..."; "dev" for local builds.
+// -ldflags "-X monitor/internal/monitor.Version=..."; "dev" for local builds.
 var Version = "dev"
 
 // SystemInfo is the static machine identity, read once at startup and served

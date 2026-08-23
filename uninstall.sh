@@ -7,7 +7,7 @@ set -e
 
 # ===== 配置项（须与 install.sh 保持一致） =====
 SERVICE_NAME="monitor"
-INSTALL_DIR="${INSTALL_DIR:-/opt/orangepi-monitor}"
+INSTALL_DIR="${INSTALL_DIR:-/opt/monitor}"
 ENV_FILE="/etc/default/monitor"
 
 # 防呆：拒绝危险的安装目录（空值会经 :- 展开为默认目录，此处只需拦截 /）
@@ -17,7 +17,7 @@ if [ "$INSTALL_DIR" = "/" ]; then
 fi
 
 echo "------------------------------------------------"
-echo "🧹 Orange Pi 监控服务卸载"
+echo "🧹 监控服务卸载"
 echo "   将删除: systemd 服务 / $INSTALL_DIR / $ENV_FILE"
 echo "------------------------------------------------"
 

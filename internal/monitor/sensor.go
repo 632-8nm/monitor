@@ -53,6 +53,7 @@ type SystemStats struct {
 	DiskLatency  float64       `json:"disk_latency_ms"` // average I/O latency
 	DiskIOPS     float64       `json:"disk_iops"`
 	WifiLink     float64       `json:"wifi_link"` // link quality (0 = no wireless)
+	WifiDbm      float64       `json:"wifi_dbm"`  // signal level in dBm (0 = placeholders only)
 	TopProcs     []ProcInfo    `json:"top_procs"`
 	NetDown      float64       `json:"net_down"`
 	NetUp        float64       `json:"net_up"`
@@ -191,11 +192,22 @@ func (c *Collector) GetCPUFreq() float64 {
 }
 
 // usefulThermal reports whether a sysfs thermal zone is worth exposing.
-// Only CPU/NPU sensors are kept: the video-engine and DDR-controller
-// sensors sunxi SoCs also expose are idle noise on a headless board.
+// The keyword list defaults to cpu/npu and can be overridden via
+// MONITOR_THERMAL_ZONES (comma separated, substring match) — e.g.
+// "cpu,npu,soc" for kernels that label the SoC sensor "soc-thermal".
 func usefulThermal(zoneType string) bool {
+	allow := strings.TrimSpace(os.Getenv("MONITOR_THERMAL_ZONES"))
+	if allow == "" {
+		allow = "cpu,npu"
+	}
 	t := strings.ToLower(zoneType)
-	return strings.Contains(t, "cpu") || strings.Contains(t, "npu")
+	for _, kw := range strings.Split(allow, ",") {
+		kw = strings.ToLower(strings.TrimSpace(kw))
+		if kw != "" && strings.Contains(t, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 // physicalDisk reports whether a disk name is a real device rather than a
@@ -209,14 +221,14 @@ func physicalDisk(name string) bool {
 	return false
 }
 
-// readWiFiLink returns the wireless link quality from /proc/net/wireless
-// (0 means no wireless interface). This board's driver reports quality out
-// of 70 and leaves the dBm columns at placeholder values (-256), so quality
-// is the only usable signal-strength metric.
-func readWiFiLink() float64 {
+// readWiFi returns the wireless link quality and signal level from
+// /proc/net/wireless (both 0 when there is no wireless interface). Some
+// drivers leave the dBm columns at placeholder values (-256), in which case
+// only the quality is usable; modern drivers report a real dBm level.
+func readWiFi() (link, dbm float64) {
 	raw, err := os.ReadFile("/proc/net/wireless")
 	if err != nil {
-		return 0
+		return 0, 0
 	}
 	for _, line := range strings.Split(string(raw), "\n") {
 		fields := strings.Fields(line)
@@ -232,9 +244,17 @@ func readWiFiLink() float64 {
 		if err != nil || quality <= 0 {
 			continue
 		}
-		return quality
+		link = quality
+		if len(fields) >= 4 {
+			level, err := strconv.ParseFloat(fields[3], 64)
+			// Plausible dBm range; drivers without support report -256 or 0
+			if err == nil && level <= -20 && level >= -200 {
+				dbm = level
+			}
+		}
+		return link, dbm
 	}
-	return 0
+	return 0, 0
 }
 
 // fmtDiskSize renders used/total with a unit that fits small partitions
@@ -446,7 +466,7 @@ func (c *Collector) collectSlow() {
 	thermals := readThermals()
 	cpuTemp := c.GetCPUTemp()
 	uptime, _ := host.Uptime()
-	wifiLink := readWiFiLink()
+	wifiLink, wifiDbm := readWiFi()
 
 	// Physical mount points (/, /var/log, external drives...). Bind mounts
 	// like /var/log.hdd share the root device — dedupe by device so only
@@ -496,6 +516,7 @@ func (c *Collector) collectSlow() {
 	s.DiskLatency = latencyMs
 	s.DiskIOPS = iops
 	s.WifiLink = wifiLink
+	s.WifiDbm = wifiDbm
 	s.TopProcs = c.topProcs()
 	s.Uptime = uptime
 	c.current = s

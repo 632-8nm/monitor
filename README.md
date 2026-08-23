@@ -1,6 +1,6 @@
-# Orange Pi Zero3 系统监控站
+# monitor — 轻量系统监控站
 
-本仓库用于管理 Orange Pi Zero3 的系统监控程序，通过 GitHub Actions 实现云端自动编译与持续部署。
+轻量级多平台系统监控服务，支持任意 Linux 设备（arm64/amd64，最初为 Orange Pi Zero3 开发），通过 GitHub Actions 实现云端自动编译与持续部署。
 
 > 📦 **部署架构与从零搭建流程见 [DEPLOYMENT.md](DEPLOYMENT.md)**（CI/CD、Cloudflare 隧道、/opt 部署、密钥配置）
 
@@ -46,7 +46,7 @@
 * **查看隧道服务状态**：`sudo systemctl status cloudflared`
 * **重启隧道服务**：`sudo systemctl restart cloudflared`
 * **源码编译并安装**：`./build.sh`（编译后自动执行 install.sh；`BUILD_ONLY=1 ./build.sh` 仅编译）
-* **安装预编译包**：`./install.sh`（将当前目录的 `monitor_server` 安装到 `/opt/orangepi-monitor`，支持 `INSTALL_DIR` 自定义）
+* **安装预编译包**：`./install.sh`（将当前目录的 `monitor_server` 安装到 `/opt/monitor`，支持 `INSTALL_DIR` 自定义）
 * **卸载**：`./uninstall.sh`（撤销 install.sh 的全部操作，不影响 cloudflared 隧道）
 
 ## 重新部署
@@ -66,26 +66,26 @@
 推送 `v*` 标签会自动构建发布包。从 GitHub Releases 下载最新的 `linux-arm64` 压缩包后：
 
 ```bash
-tar -xzf orangepi-monitor-vX.Y.Z-linux-arm64.tar.gz
-cd orangepi-monitor-vX.Y.Z
+tar -xzf monitor-vX.Y.Z-linux-<arch>.tar.gz
+cd monitor-vX.Y.Z-linux-<arch>
 ./install.sh
 ```
 
 **方式二：从源码构建**
 
 ```bash
-git clone <本仓库> && cd orangepi-monitor
+git clone <本仓库> && cd monitor
 ./build.sh
 ```
 
-两种方式都安装到 `/opt/orangepi-monitor`（可用 `INSTALL_DIR` 覆盖），注册 systemd 服务并开机自启，默认只监听 `127.0.0.1:8080`。安全配置见下文，卸载执行 `./uninstall.sh`。
+两种方式都安装到 `/opt/monitor`（可用 `INSTALL_DIR` 覆盖），注册 systemd 服务并开机自启，默认只监听 `127.0.0.1:8080`。安全配置见下文，卸载执行 `./uninstall.sh`。
 
 ## 服务配置
 
 * **监控服务**：`/etc/systemd/system/monitor.service`
 * **隧道服务**：`/etc/systemd/system/cloudflared.service`
 * **服务端口**：8080
-* **访问域名**：https://orangepi-monitor.your-domain.example/
+* **访问域名**：https://monitor.your-domain.example/
 
 ## 安全配置（建议在生产启用）
 
@@ -94,7 +94,7 @@ git clone <本仓库> && cd orangepi-monitor
 * `MONITOR_LISTEN_ADDR`：监听地址（默认 `127.0.0.1:8080`，建议保持默认）
 * `MONITOR_BASIC_AUTH_USER`：Basic Auth 用户名
 * `MONITOR_BASIC_AUTH_PASS`：Basic Auth 密码
-* `MONITOR_ALLOWED_ORIGINS`：CORS 白名单，逗号分隔（例如 `https://orangepi-monitor.your-domain.example/`）
+* `MONITOR_ALLOWED_ORIGINS`：CORS 白名单，逗号分隔（例如 `https://monitor.your-domain.example/`）
 
 当未设置 `MONITOR_BASIC_AUTH_USER/PASS` 时，服务以兼容模式运行（无鉴权）。
 当未设置 `MONITOR_ALLOWED_ORIGINS` 时，服务以宽松 CORS 模式运行。
