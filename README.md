@@ -1,6 +1,6 @@
 # monitor — 轻量系统监控站
 
-轻量级多平台系统监控服务，支持任意 Linux 设备（arm64/amd64，最初为 Orange Pi Zero3 开发），通过 GitHub Actions 实现云端自动编译与持续部署。
+轻量级系统监控服务，仅面向 Linux（arm64/amd64，最初为 Orange Pi Zero3 开发），通过 GitHub Actions 实现云端自动编译与持续部署。
 
 > 📦 **部署架构与从零搭建流程见 [DEPLOYMENT.md](DEPLOYMENT.md)**（CI/CD、Cloudflare 隧道、/opt 部署、密钥配置）
 
