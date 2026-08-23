@@ -10,11 +10,11 @@ set -e
 # ===== 配置项 =====
 SERVICE_NAME="monitor"
 BINARY_NAME="monitor_server"
-INSTALL_DIR="${INSTALL_DIR:-/opt/orangepi-monitor}"
+INSTALL_DIR="${INSTALL_DIR:-/opt/monitor}"
 ENV_FILE="/etc/default/monitor"
 
 echo "------------------------------------------------"
-echo "🚀 Orange Pi 监控服务安装"
+echo "🚀 监控服务安装"
 echo "   安装目录: $INSTALL_DIR"
 echo "------------------------------------------------"
 
@@ -51,7 +51,7 @@ sudo chown -R "$RUN_USER:$RUN_GROUP" "$INSTALL_DIR"
 echo "📝 正在生成系统服务配置..."
 sudo tee "/etc/systemd/system/$SERVICE_NAME.service" >/dev/null <<EOT
 [Unit]
-Description=Orange Pi System Monitor Service
+Description=System Monitor Service
 After=network.target
 
 [Service]

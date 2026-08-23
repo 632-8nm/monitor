@@ -59,6 +59,7 @@ func maxThermal(stats SystemStats) float64 {
 type Alerter struct {
 	enabled  bool
 	key      string
+	board    string // board model prefix for notification titles
 	cooldown time.Duration
 	rules    []*alertRule
 	client   *http.Client
@@ -112,7 +113,7 @@ func (a *Alerter) Check(stats SystemStats) {
 				r.notified = true
 				r.lastSent = now
 				go a.notify(
-					fmt.Sprintf("⚠️ Orange Pi %s告警", r.name),
+					fmt.Sprintf("⚠️ %s%s告警", a.prefix(), r.name),
 					fmt.Sprintf("**%s**: %.1f%s，超过阈值 %.0f%s\n\n> %s",
 						r.name, v, r.unit, r.threshold, r.unit, now.Format("2006-01-02 15:04:05")))
 			}
@@ -122,11 +123,20 @@ func (a *Alerter) Check(stats SystemStats) {
 			if r.notified {
 				r.notified = false
 				go a.notify(
-					fmt.Sprintf("✅ Orange Pi %s已恢复", r.name),
+					fmt.Sprintf("✅ %s%s已恢复", a.prefix(), r.name),
 					fmt.Sprintf("**%s**: %.1f%s 已回落到阈值以下（本次持续约 %s）", r.name, v, r.unit, episode))
 			}
 		}
 	}
+}
+
+// prefix renders the board model prefix for titles ("OrangePi Zero3 "),
+// empty when the model is unknown.
+func (a *Alerter) prefix() string {
+	if a.board == "" {
+		return ""
+	}
+	return a.board + " "
 }
 
 // notify delivers one ServerChan message; failures are logged, never fatal.

@@ -7,9 +7,31 @@ on:
   workflow_dispatch:
 
 jobs:
+  check:
+    name: Build check (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build
+        run: CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -trimpath ./cmd/monitor
+
   build:
     name: Build arm64 binary
     runs-on: ubuntu-latest
+    needs: check
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,7 +43,7 @@ jobs:
 
       - name: Cross-compile for arm64
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-w -X orangepi-monitor/internal/monitor.Version=main-$(git rev-parse --short HEAD)" -o monitor_server ./cmd/monitor
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-w -X monitor/internal/monitor.Version=main-$(git rev-parse --short HEAD)" -o monitor_server ./cmd/monitor
           file monitor_server
           chmod +x monitor_server
 
@@ -34,7 +56,7 @@ jobs:
 
   deploy:
     name: Deploy to board
-    needs: build
+    needs: [build, check]
     runs-on: ubuntu-latest
     steps:
       - name: Download build artifacts
@@ -89,7 +111,7 @@ jobs:
             exit 1
           fi
 
-          DEPLOY_DIR=/opt/orangepi-monitor
+          DEPLOY_DIR=/opt/monitor
 
           echo "==> Stopping the monitor service first (release the binary)"
           ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \

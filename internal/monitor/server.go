@@ -22,10 +22,13 @@ type Server struct {
 
 func NewServer() *Server {
 	origins := parseAllowedOrigins(os.Getenv("MONITOR_ALLOWED_ORIGINS"))
+	system := readSystemInfo()
+	alerter := NewAlerterFromEnv()
+	alerter.board = system.BoardModel // notification titles carry the board model
 	return &Server{
 		collector:      &Collector{history: newHistory(), probe: &netProbe{}},
-		alerter:        NewAlerterFromEnv(),
-		system:         readSystemInfo(),
+		alerter:        alerter,
+		system:         system,
 		basicAuthUser:  os.Getenv("MONITOR_BASIC_AUTH_USER"),
 		basicAuthPass:  os.Getenv("MONITOR_BASIC_AUTH_PASS"),
 		allowedOrigins: origins,

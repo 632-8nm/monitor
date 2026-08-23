@@ -18,10 +18,11 @@ if [ ! -f go.mod ] || [ ! -d cmd/monitor ]; then
     exit 1
 fi
 
-# ===== 编译 =====
+# ===== 编译（BUILD_ARCH 可选，如 BUILD_ARCH=amd64 ./build.sh 交叉编译） =====
 VERSION_VAL="local-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d)"
-echo "📦 正在编译 Go 后端 (版本: $VERSION_VAL)..."
-CGO_ENABLED=0 go build -trimpath -ldflags="-w -X orangepi-monitor/internal/monitor.Version=$VERSION_VAL" -o monitor_server ./cmd/monitor
+GOARCH_VAL="${BUILD_ARCH:-$(go env GOARCH)}"
+echo "📦 正在编译 Go 后端 (版本: $VERSION_VAL, 架构: $GOARCH_VAL)..."
+CGO_ENABLED=0 GOARCH="$GOARCH_VAL" go build -trimpath -ldflags="-w -X monitor/internal/monitor.Version=$VERSION_VAL" -o monitor_server ./cmd/monitor
 chmod +x monitor_server
 echo "✅ 编译成功: monitor_server"
 

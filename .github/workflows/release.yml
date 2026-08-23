@@ -1,9 +1,9 @@
 name: Release
 
-# Push a version tag (v*) to build an arm64 release package and publish it
-# as a GitHub Release. The tarball bundles the binary, frontend files and
-# the install/uninstall scripts — end users need no Go toolchain:
-#   tar -xzf orangepi-monitor-<tag>-linux-arm64.tar.gz && ./install.sh
+# Push a version tag (v*) to build multi-arch release packages and publish
+# them as a GitHub Release. Each tarball bundles the binary plus the
+# install/uninstall scripts — end users need no Go toolchain:
+#   tar -xzf monitor-<tag>-linux-<arch>.tar.gz && ./install.sh
 on:
   push:
     tags: ['v*']
@@ -12,9 +12,14 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build & publish release
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: arm64 }
+          - { goos: linux, goarch: amd64 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,34 +29,50 @@ jobs:
         with:
           go-version: '1.23'
 
-      - name: Cross-compile for arm64
+      - name: Cross-compile
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-w -X orangepi-monitor/internal/monitor.Version=${GITHUB_REF_NAME}" -o monitor_server ./cmd/monitor
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -trimpath -ldflags="-w -X monitor/internal/monitor.Version=${GITHUB_REF_NAME}" \
+            -o monitor_server ./cmd/monitor
           file monitor_server
 
-      - name: Assemble release package
+      - name: Assemble package
         run: |
           TAG="${GITHUB_REF_NAME}"
-          PKG="orangepi-monitor-${TAG}"
+          PKG="monitor-${TAG}-${{ matrix.goos }}-${{ matrix.goarch }}"
           mkdir -p "dist/${PKG}"
           cp monitor_server install.sh uninstall.sh "dist/${PKG}/"
           chmod +x "dist/${PKG}/monitor_server" "dist/${PKG}/install.sh" "dist/${PKG}/uninstall.sh"
-          tar -czf "dist/${PKG}-linux-arm64.tar.gz" -C dist "$PKG"
-          sha256sum "dist/${PKG}-linux-arm64.tar.gz" > "dist/${PKG}-linux-arm64.tar.gz.sha256"
+          tar -czf "dist/${PKG}.tar.gz" -C dist "$PKG"
+          sha256sum "dist/${PKG}.tar.gz" > "dist/${PKG}.tar.gz.sha256"
           ls -l dist/
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pkg-*
+          merge-multiple: true
+          path: dist
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF_NAME}"
-          PKG="orangepi-monitor-${TAG}"
           # Idempotent: re-running for an existing tag (e.g. after a force
           # push) updates the assets instead of failing on create
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "orangepi-monitor ${TAG}" --generate-notes
+            gh release create "$TAG" --title "monitor ${TAG}" --generate-notes
           fi
-          gh release upload "$TAG" \
-            "dist/${PKG}-linux-arm64.tar.gz" \
-            "dist/${PKG}-linux-arm64.tar.gz.sha256" \
-            --clobber
+          gh release upload "$TAG" dist/*.tar.gz dist/*.sha256 --clobber
