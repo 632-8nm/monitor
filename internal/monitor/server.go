@@ -14,6 +14,7 @@ type Server struct {
 	collector      *Collector
 	alerter        *Alerter
 	system         SystemInfo
+	terminal       bool
 	basicAuthUser  string
 	basicAuthPass  string
 	allowedOrigins map[string]struct{}
@@ -29,6 +30,7 @@ func NewServer() *Server {
 		collector:      &Collector{history: newHistory(), probe: &netProbe{}},
 		alerter:        alerter,
 		system:         system,
+		terminal:       terminalEnabled(),
 		basicAuthUser:  os.Getenv("MONITOR_BASIC_AUTH_USER"),
 		basicAuthPass:  os.Getenv("MONITOR_BASIC_AUTH_PASS"),
 		allowedOrigins: origins,
@@ -170,6 +172,7 @@ func (s *Server) Start(addr string) {
 	mux.HandleFunc("/api/stats", s.StatsHandler)
 	mux.HandleFunc("/api/history", s.HistoryHandler)
 	mux.HandleFunc("/api/system", s.SystemHandler)
+	mux.HandleFunc("/ws/terminal", s.TerminalHandler) // self-guards when disabled
 
 	// Start fixed-period background collection; the API only reads snapshots
 	s.collector.Start()

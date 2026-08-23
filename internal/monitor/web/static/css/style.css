@@ -363,3 +363,87 @@ header h1 {
 	height: 100%;
 	transition: width 0.5s ease;
 }
+
+/* ===== 网页终端 ===== */
+.terminal-toggle {
+	margin-top: 0.8rem;
+	background: rgba(56, 189, 248, 0.15);
+	color: var(--accent-color);
+	border: 1px solid rgba(56, 189, 248, 0.4);
+	border-radius: 8px;
+	padding: 6px 16px;
+	font-size: 0.85rem;
+	cursor: pointer;
+}
+
+.terminal-toggle:hover {
+	background: rgba(56, 189, 248, 0.3);
+}
+
+.term-panel {
+	position: fixed;
+	display: none;
+	flex-direction: column;
+	min-width: 360px;
+	min-height: 200px;
+	background: #141d2b;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 10px;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+	overflow: hidden;
+	z-index: 1000;
+	resize: none;
+}
+
+.term-titlebar {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 6px 10px;
+	background: rgba(255, 255, 255, 0.05);
+	cursor: move;
+	user-select: none;
+	touch-action: none;
+}
+
+.term-title {
+	font-size: 0.8rem;
+	color: var(--text-dim);
+}
+
+.term-actions {
+	display: flex;
+	gap: 6px;
+}
+
+.term-btn {
+	background: transparent;
+	color: var(--text-dim);
+	border: none;
+	font-size: 0.9rem;
+	line-height: 1;
+	padding: 2px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.term-btn:hover {
+	background: rgba(255, 255, 255, 0.12);
+	color: var(--text-main);
+}
+
+.term-body {
+	flex: 1;
+	min-height: 0;
+	padding: 6px 8px;
+}
+
+.term-resize {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	width: 16px;
+	height: 16px;
+	cursor: nwse-resize;
+	touch-action: none;
+}

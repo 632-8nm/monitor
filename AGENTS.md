@@ -51,7 +51,7 @@ build.sh / install.sh / uninstall.sh   # 源码构建（支持 BUILD_ARCH 交叉
 
 ## 环境变量（/etc/default/monitor）
 
-`MONITOR_LISTEN_ADDR`（默认 127.0.0.1:8080）、`MONITOR_BASIC_AUTH_USER/PASS`（未设=无鉴权兼容模式）、`MONITOR_ALLOWED_ORIGINS`、`MONITOR_SERVERCHAN_KEY`（设了才启用告警）、`MONITOR_ALERT_TEMP/MEM/DISK`（默认 70/90/90，0 禁用）、`MONITOR_ALERT_COOLDOWN`（默认 30 分钟，保护免费版每日 5 条额度）、`MONITOR_THERMAL_ZONES`（默认 cpu,npu）。
+`MONITOR_LISTEN_ADDR`（默认 127.0.0.1:8080）、`MONITOR_BASIC_AUTH_USER/PASS`（未设=无鉴权兼容模式）、`MONITOR_ALLOWED_ORIGINS`、`MONITOR_SERVERCHAN_KEY`（设了才启用告警）、`MONITOR_ALERT_TEMP/MEM/DISK`（默认 70/90/90，0 禁用）、`MONITOR_ALERT_COOLDOWN`（默认 30 分钟，保护免费版每日 5 条额度）、`MONITOR_THERMAL_ZONES`（默认 cpu,npu）、`MONITOR_TERMINAL`（=1 启用网页终端；WS↔PTY 桥在 terminal.go，仅 Linux 有 PTY，Windows 返回 unavailable；终端=页面上的 shell，只允许在可信网络开启）。
 
 ## 部署链路（push main 后自动发生）
 

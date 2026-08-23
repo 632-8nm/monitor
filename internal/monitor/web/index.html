@@ -5,12 +5,13 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>系统监控</title>
-	<link rel="stylesheet" href="static/css/style.css?v=9">
+	<link rel="stylesheet" href="static/css/style.css?v=10">
 </head>
 
 <body>
 	<header>
 		<h1 id="page-title">系统监控</h1>
+		<button type="button" id="terminal-toggle" class="terminal-toggle" style="display:none;">⌨ 终端</button>
 		<p id="local-time">正在连接服务器...</p>
 	</header>
 
@@ -139,7 +140,9 @@
 		<span class="status-dot"></span> 数据实时更新（趋势图数据保留在内存中，重启后重新积累）
 	</div>
 
-	<script src="static/js/app.js?v=21"></script>
+<link rel="stylesheet" href="static/vendor/xterm.css?v=1">
+	<script src="static/js/app.js?v=22"></script>
+	<script src="static/js/terminal.js?v=1"></script>
 </body>
 
 </html>

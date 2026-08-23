@@ -334,6 +334,12 @@
 			document.getElementById('sys-kernel').innerText = s.kernel || '--';
 			document.getElementById('sys-board').innerText = s.board || '--';
 			document.getElementById('sys-version').innerText = s.version || '--';
+			// 网页终端：后端开启（MONITOR_TERMINAL=1）才显示入口按钮
+			const tBtn = document.getElementById('terminal-toggle');
+			if (tBtn && s.terminal) {
+				tBtn.style.display = '';
+				tBtn.addEventListener('click', () => window.TerminalPanel && TerminalPanel.toggle());
+			}
 			// 主频是规格参数（静态）；实时频率在处理器卡里随轮询更新
 			document.getElementById('sys-cpu').innerText = s.cpu_max_ghz > 0
 				? `${s.cpu} @ ${s.cpu_max_ghz.toFixed(2)} GHz`

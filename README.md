@@ -99,6 +99,12 @@ git clone <本仓库> && cd monitor
 当未设置 `MONITOR_BASIC_AUTH_USER/PASS` 时，服务以兼容模式运行（无鉴权）。
 当未设置 `MONITOR_ALLOWED_ORIGINS` 时，服务以宽松 CORS 模式运行。
 
+## 网页终端（可选）
+
+设置 `MONITOR_TERMINAL=1` 后，监控页头部出现「⌨ 终端」按钮：展开一个悬浮可拖动的终端窗口（xterm.js ⇄ WebSocket ⇄ bash，以服务运行用户身份执行）。收起保留会话、关闭结束会话，窗口位置与尺寸自动记忆。仅面向 Linux（PTY 依赖），Windows 下返回不可用属正常回退。
+
+终端等于把 shell 搬到页面上，**只在可信网络使用**（当前部署为局域网访问）；若将来恢复公网暴露，必须同时启用 Basic Auth 或 Cloudflare Access。
+
 ## 告警推送（Server酱 → 微信）
 
 设置 `MONITOR_SERVERCHAN_KEY` 后启用告警：温度 / 内存 / 磁盘越过阈值时通过 [Server酱](https://sct.ftqq.com)（微信扫码登录获取 SendKey）推送到微信，回落到阈值以下会再推一条恢复通知。相关环境变量：
