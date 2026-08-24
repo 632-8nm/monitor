@@ -38,6 +38,7 @@
 					<span class="term-title">终端</span>
 					<span class="term-actions">
 						<button type="button" class="term-btn" data-act="collapse" title="收起（保留会话）">—</button>
+						<button type="button" class="term-btn" data-act="logout" title="登出管理员">⏻</button>
 						<button type="button" class="term-btn" data-act="close" title="关闭（结束会话）">×</button>
 					</span>
 				</div>
@@ -47,6 +48,10 @@
 			this.applyGeom(loadGeom());
 			this.el.querySelector('[data-act="collapse"]').addEventListener('click', () => this.toggle());
 			this.el.querySelector('[data-act="close"]').addEventListener('click', () => this.close());
+			this.el.querySelector('[data-act="logout"]').addEventListener('click', async () => {
+				try { await fetch('/api/admin/logout', { method: 'POST' }); } catch (e) { /* ignore */ }
+				this.close();
+			});
 			this.enableDrag();
 			this.enableResize();
 		},
@@ -114,8 +119,55 @@
 			this.createDOM();
 			this.el.style.display = 'flex';
 			await this.ensureDeps();
-			if (!this.term) this.startSession();
-			else if (this.fit) this.fit.fit();
+			if (this.term) { if (this.fit) this.fit.fit(); return; }
+			if (await this.checkSession()) this.startSession();
+			else this.renderLogin();
+		},
+
+		async checkSession() {
+			try {
+				const r = await fetch('/api/admin/session');
+				return (await r.json()).authed === true;
+			} catch (e) {
+				return false;
+			}
+		},
+
+		// 管理员登录表单（终端收在 admin 会话后面）
+		renderLogin() {
+			const body = this.el.querySelector('.term-body');
+			body.innerHTML = `
+				<div class="term-login">
+					<div class="term-login-title">管理员登录</div>
+					<input class="term-input" id="term-user" placeholder="用户名" autocomplete="username">
+					<input class="term-input" id="term-pass" type="password" placeholder="密码" autocomplete="current-password">
+					<button type="button" class="term-login-btn" id="term-login-btn">登录</button>
+					<div class="term-login-err" id="term-login-err"></div>
+				</div>`;
+			const submit = async () => {
+				const user = document.getElementById('term-user').value.trim();
+				const pass = document.getElementById('term-pass').value;
+				const err = document.getElementById('term-login-err');
+				err.textContent = '';
+				try {
+					const r = await fetch('/api/admin/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ user, pass })
+					});
+					if (r.status === 204) {
+						body.innerHTML = '';
+						this.startSession();
+						return;
+					}
+					err.textContent = r.status === 401 ? '用户名或密码错误' : `登录失败 (${r.status})`;
+				} catch (e) {
+					err.textContent = '网络错误';
+				}
+			};
+			document.getElementById('term-login-btn').addEventListener('click', submit);
+			document.getElementById('term-pass').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+			document.getElementById('term-user').focus();
 		},
 
 		startSession() {

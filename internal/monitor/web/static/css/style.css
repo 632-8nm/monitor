@@ -447,3 +447,59 @@ header h1 {
 	cursor: nwse-resize;
 	touch-action: none;
 }
+
+/* ===== 管理员登录（终端收在 admin 会话后面） ===== */
+.term-login {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 10px;
+	height: 100%;
+	max-width: 320px;
+	margin: 0 auto;
+	padding: 12px;
+}
+
+.term-login-title {
+	color: var(--text-main);
+	font-size: 0.95rem;
+	text-align: center;
+	margin-bottom: 4px;
+}
+
+.term-input {
+	width: 100%;
+	background: rgba(255, 255, 255, 0.06);
+	color: var(--text-main);
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	border-radius: 6px;
+	padding: 8px 10px;
+	font-size: 0.85rem;
+	outline: none;
+}
+
+.term-input:focus {
+	border-color: var(--accent-color);
+}
+
+.term-login-btn {
+	background: var(--accent-color);
+	color: var(--bg-color);
+	border: none;
+	border-radius: 6px;
+	padding: 9px 0;
+	font-size: 0.9rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.term-login-btn:hover {
+	filter: brightness(1.1);
+}
+
+.term-login-err {
+	color: var(--danger);
+	font-size: 0.8rem;
+	text-align: center;
+	min-height: 1em;
+}

@@ -83,6 +83,8 @@ MONITOR_LISTEN_ADDR=127.0.0.1:8080
 # MONITOR_ALERT_DISK=90     (磁盘阈值 %，0 = 禁用)
 # MONITOR_ALERT_COOLDOWN=30 (同一告警重发间隔，分钟)
 # MONITOR_TERMINAL=1          (启用网页终端，需在可信网络使用)
+# MONITOR_ADMIN_USER=admin     (管理员用户名，默认 admin)
+# MONITOR_ADMIN_PASS=123456    (管理员密码，默认 123456，务必修改)
 EOT
 fi
 

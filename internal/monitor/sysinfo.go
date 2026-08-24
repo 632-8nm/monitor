@@ -29,9 +29,8 @@ type SystemInfo struct {
 
 func readSystemInfo() SystemInfo {
 	info := SystemInfo{
-		Cores:    runtime.NumCPU(),
-		Version:  Version,
-		Terminal: terminalEnabled(),
+		Cores:   runtime.NumCPU(),
+		Version: Version,
 	}
 
 	if hi, err := host.Info(); err == nil {

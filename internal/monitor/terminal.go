@@ -27,11 +27,17 @@ var termUpgrader = websocket.Upgrader{
 }
 
 // TerminalHandler bridges one WebSocket connection to an interactive PTY
-// shell. Binary frames carry terminal I/O; text frames carry JSON control
-// messages (resize). Disconnecting kills the shell — no orphan sessions.
+// shell. Requires a valid admin session cookie — browsers attach cookies
+// to WebSocket handshakes, so the cookie flow works natively here. Binary
+// frames carry terminal I/O; text frames carry JSON control messages
+// (resize). Disconnecting kills the shell — no orphan sessions.
 func (s *Server) TerminalHandler(w http.ResponseWriter, r *http.Request) {
 	if !s.terminal {
 		http.Error(w, "terminal disabled", http.StatusNotFound)
+		return
+	}
+	if !s.admin.configured() || !s.admin.valid(s.admin.tokenFromRequest(r)) {
+		http.Error(w, "admin session required", http.StatusUnauthorized)
 		return
 	}
 	ws, err := termUpgrader.Upgrade(w, r, nil)

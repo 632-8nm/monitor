@@ -101,9 +101,9 @@ git clone <本仓库> && cd monitor
 
 ## 网页终端（可选）
 
-设置 `MONITOR_TERMINAL=1` 后，监控页头部出现「⌨ 终端」按钮：展开一个悬浮可拖动的终端窗口（xterm.js ⇄ WebSocket ⇄ bash，以服务运行用户身份执行）。收起保留会话、关闭结束会话，窗口位置与尺寸自动记忆。仅面向 Linux（PTY 依赖），Windows 下返回不可用属正常回退。
+设置 `MONITOR_TERMINAL=1` 后，监控页头部出现「⌨ 终端」按钮：展开一个悬浮可拖动的终端窗口（xterm.js ⇄ WebSocket ⇄ bash，以服务运行用户身份执行），但需要先通过管理员登录（默认账号 `admin` / 密码 `123456`，可用 `MONITOR_ADMIN_USER/PASS` 覆盖）。收起保留会话、关闭结束会话，窗口位置与尺寸自动记忆。仅面向 Linux（PTY 依赖），Windows 下返回不可用属正常回退。
 
-终端等于把 shell 搬到页面上，**只在可信网络使用**（当前部署为局域网访问）；若将来恢复公网暴露，必须同时启用 Basic Auth 或 Cloudflare Access。
+终端等于把 shell 搬到页面上，**只在可信网络使用**（当前部署为局域网访问）；默认口令 `123456` 极弱，公网部署前务必用 `MONITOR_ADMIN_USER/PASS` 改掉，若将来恢复公网暴露还需同时启用 Basic Auth 或 Cloudflare Access。
 
 ## 告警推送（Server酱 → 微信）
 

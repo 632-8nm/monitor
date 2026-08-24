@@ -15,6 +15,7 @@ type Server struct {
 	alerter        *Alerter
 	system         SystemInfo
 	terminal       bool
+	admin          *adminAuth
 	basicAuthUser  string
 	basicAuthPass  string
 	allowedOrigins map[string]struct{}
@@ -26,11 +27,15 @@ func NewServer() *Server {
 	system := readSystemInfo()
 	alerter := NewAlerterFromEnv()
 	alerter.board = system.BoardModel // notification titles carry the board model
+	admin := newAdminAuth()
+	// The web terminal needs both the feature switch and admin credentials
+	system.Terminal = terminalEnabled() && admin.configured()
 	return &Server{
 		collector:      &Collector{history: newHistory(), probe: &netProbe{}},
 		alerter:        alerter,
 		system:         system,
 		terminal:       terminalEnabled(),
+		admin:          admin,
 		basicAuthUser:  os.Getenv("MONITOR_BASIC_AUTH_USER"),
 		basicAuthPass:  os.Getenv("MONITOR_BASIC_AUTH_PASS"),
 		allowedOrigins: origins,
@@ -173,6 +178,11 @@ func (s *Server) Start(addr string) {
 	mux.HandleFunc("/api/history", s.HistoryHandler)
 	mux.HandleFunc("/api/system", s.SystemHandler)
 	mux.HandleFunc("/ws/terminal", s.TerminalHandler) // self-guards when disabled
+
+	// Admin session endpoints (guard the terminal and future admin areas)
+	mux.HandleFunc("/api/admin/session", s.AdminSessionHandler)
+	mux.HandleFunc("/api/admin/login", s.AdminLoginHandler)
+	mux.HandleFunc("/api/admin/logout", s.AdminLogoutHandler)
 
 	// Start fixed-period background collection; the API only reads snapshots
 	s.collector.Start()
