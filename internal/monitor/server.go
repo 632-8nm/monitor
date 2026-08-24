@@ -26,6 +26,7 @@ func NewServer() *Server {
 	system := readSystemInfo()
 	alerter := NewAlerterFromEnv()
 	alerter.board = system.BoardModel // notification titles carry the board model
+	// The web terminal needs both the feature switch and admin credentials
 	return &Server{
 		collector:      &Collector{history: newHistory(), probe: &netProbe{}},
 		alerter:        alerter,
@@ -171,6 +172,7 @@ func (s *Server) Start(addr string) {
 	mux.HandleFunc("/api/stats", s.StatsHandler)
 	mux.HandleFunc("/api/history", s.HistoryHandler)
 	mux.HandleFunc("/api/system", s.SystemHandler)
+
 
 	// Start fixed-period background collection; the API only reads snapshots
 	s.collector.Start()

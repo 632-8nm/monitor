@@ -101,7 +101,6 @@ git clone <本仓库> && cd monitor
 
 
 
-终端等于把 shell 搬到页面上，**只在可信网络使用**（当前部署为局域网访问）；若将来恢复公网暴露，必须同时启用 Basic Auth 或 Cloudflare Access。
 
 ## 告警推送（Server酱 → 微信）
 
