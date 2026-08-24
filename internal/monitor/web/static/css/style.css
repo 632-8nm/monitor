@@ -460,6 +460,11 @@ header h1 {
 	border-radius: 10px;
 }
 
+.term-panel.term-embed .term-body {
+	/* xterm 网格必须贴容器边，否则选区/光标与渲染错位 */
+	padding: 0;
+}
+
 /* ===== 管理员登录（终端收在 admin 会话后面） ===== */
 .term-login {
 	display: flex;

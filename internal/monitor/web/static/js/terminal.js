@@ -44,7 +44,6 @@
 					<span class="term-title">终端</span>
 					<span class="term-actions">
 						<button type="button" class="term-btn" data-act="collapse" title="收起（保留会话）">—</button>
-						<button type="button" class="term-btn" data-act="logout" title="登出管理员">⏻</button>
 						<button type="button" class="term-btn" data-act="close" title="关闭（结束会话）">×</button>
 					</span>
 				</div>
@@ -65,7 +64,6 @@
 			}
 			this.el.querySelector('[data-act="collapse"]').addEventListener('click', () => this.toggle());
 			this.el.querySelector('[data-act="close"]').addEventListener('click', () => this.close());
-			this.el.querySelector('[data-act="logout"]').addEventListener('click', () => this.logoutNow());
 		},
 
 		applyGeom(g) {
@@ -172,6 +170,15 @@
 						this.startSession();
 						return;
 					}
+					if (r.status === 429) {
+						let sec = 60;
+						try {
+							const d = await r.json();
+							if (Number.isFinite(d.retry_after) && d.retry_after > 0) sec = Math.ceil(d.retry_after);
+						} catch (e) { /* 解析失败用默认值 */ }
+						err.textContent = `失败次数过多，请 ${sec} 秒后再试`;
+						return;
+					}
 					err.textContent = r.status === 401 ? '用户名或密码错误' : `登录失败 (${r.status})`;
 				} catch (e) {
 					err.textContent = '网络错误';
@@ -194,6 +201,9 @@
 			this.term.loadAddon(this.fit);
 			this.term.open(this.el.querySelector('.term-body'));
 			this.fit.fit();
+			// 等字体就绪再重排一次，避免测量字体与前缀字库不一致导致的首行乱码/选中错位
+			const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+			fontsReady.then(() => { if (this.fit) { this.fit.fit(); this.term.focus(); } });
 
 			const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
 			this.ws = new WebSocket(proto + location.host + '/ws/terminal');

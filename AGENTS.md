@@ -51,7 +51,7 @@ build.sh / install.sh / uninstall.sh   # 源码构建（支持 BUILD_ARCH 交叉
 
 ## 环境变量（/etc/default/monitor）
 
-`MONITOR_LISTEN_ADDR`（默认 127.0.0.1:8080）、`MONITOR_BASIC_AUTH_USER/PASS`（未设=无鉴权兼容模式）、`MONITOR_ALLOWED_ORIGINS`、`MONITOR_SERVERCHAN_KEY`（设了才启用告警）、`MONITOR_ALERT_TEMP/MEM/DISK`（默认 70/90/90，0 禁用）、`MONITOR_ALERT_COOLDOWN`（默认 30 分钟，保护免费版每日 5 条额度）、`MONITOR_THERMAL_ZONES`（默认 cpu,npu）、`MONITOR_ADMIN_USER/PASS`（默认 admin/123456——**内置默认口令，必须要求部署时改**）管理后台：**入口 `/admin`**（web/admin.html，深链进入、监控页无按钮），网页终端内置其中且完全由 admin 会话门控（**不再需要 MONITOR_TERMINAL 开关**）：会话有效直接开 PTY，否则先弹管理员登录表单；admin.go 内存会话 + HttpOnly cookie，`/api/admin/session|login|logout` 三端点，终端顶栏与页面右上角均可登出。WS↔PTY 桥在 terminal.go，仅 Linux 有 PTY，Windows 返回 unavailable。告警文案与前端 UI 用中文，admin.go 内网 API 复用同一套 session 校验。
+`MONITOR_LISTEN_ADDR`（默认 127.0.0.1:8080）、`MONITOR_BASIC_AUTH_USER/PASS`（未设=无鉴权兼容模式）、`MONITOR_ALLOWED_ORIGINS`、`MONITOR_SERVERCHAN_KEY`（设了才启用告警）、`MONITOR_ALERT_TEMP/MEM/DISK`（默认 70/90/90，0 禁用）、`MONITOR_ALERT_COOLDOWN`（默认 30 分钟，保护免费版每日 5 条额度）、`MONITOR_THERMAL_ZONES`（默认 cpu,npu）、`MONITOR_ADMIN_USER/PASS`（默认 admin/123456——**内置默认口令，必须要求部署时改**）管理后台：**入口 `/admin`**（web/admin.html，深链进入、监控页无按钮），网页终端内置其中且完全由 admin 会话门控（**不再需要 MONITOR_TERMINAL 开关**）：会话有效直接开 PTY，否则先弹管理员登录表单；admin.go 内存会话 + HttpOnly cookie，`/api/admin/session|login|logout` 三端点，登出按钮在后台页右上角（终端窗口内不放登出）。登录有防爆破冷却：连续 3 次密码错误后锁 30s，之后每多错一次再翻倍（1min/2min/4min/…）封顶 24h，登录成功清零；计数全局化（隧道后无真实客户端 IP），重启清零。WS↔PTY 桥在 terminal.go，仅 Linux 有 PTY，Windows 返回 unavailable。告警文案与前端 UI 用中文，admin.go 内网 API 复用同一套 session 校验。
 
 ## 部署链路（push main 后自动发生）
 

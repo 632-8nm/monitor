@@ -5,7 +5,8 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>管理员后台</title>
-	<link rel="stylesheet" href="static/css/style.css?v=11">
+	<link rel="stylesheet" href="static/css/style.css?v=12">
+	<link rel="stylesheet" href="static/vendor/xterm.css?v=1">
 	<style>
 		html, body { height: 100%; }
 		body.admin-page { justify-content: flex-start; padding: 1.5rem; }
@@ -59,7 +60,7 @@
 	</div>
 	<div id="admin-term"></div>
 
-	<script src="static/js/terminal.js?v=3"></script>
+	<script src="static/js/terminal.js?v=6"></script>
 	<script>
 		// /admin：登录会话有效则直接开终端，否则先弹管理员登录表单
 		window.TerminalPanel.attach(document.getElementById('admin-term'));
