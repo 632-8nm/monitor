@@ -99,9 +99,9 @@ git clone <本仓库> && cd monitor
 当未设置 `MONITOR_BASIC_AUTH_USER/PASS` 时，服务以兼容模式运行（无鉴权）。
 当未设置 `MONITOR_ALLOWED_ORIGINS` 时，服务以宽松 CORS 模式运行。
 
-## 网页终端（可选）
+## 管理员后台与网页终端
 
-设置 `MONITOR_TERMINAL=1` 后，监控页头部出现「⌨ 终端」按钮：展开一个悬浮可拖动的终端窗口（xterm.js ⇄ WebSocket ⇄ bash，以服务运行用户身份执行），但需要先通过管理员登录（默认账号 `admin` / 密码 `123456`，可用 `MONITOR_ADMIN_USER/PASS` 覆盖）。收起保留会话、关闭结束会话，窗口位置与尺寸自动记忆。仅面向 Linux（PTY 依赖），Windows 下返回不可用属正常回退。
+后台入口：`/admin`（需知道该 URL，监控页没有入口按钮，属于「深链后门」式进入）。访问后若登录会话有效则直接打开网页终端，否则先弹管理员登录表单（默认账号 `admin` / 密码 `123456`，可用 `MONITOR_ADMIN_USER/PASS` 覆盖）。登录后可交互式使用终端（xterm.js ⇄ WebSocket ⇄ bash，以服务运行用户身份执行）；终端顶栏与页面右上角都有「登出」按钮。终端是否可用只取决于是否登录进 admin，无需任何环境变量开关。仅面向 Linux（PTY 依赖），Windows 下终端不可用属正常回退。
 
 终端等于把 shell 搬到页面上，**只在可信网络使用**（当前部署为局域网访问）；默认口令 `123456` 极弱，公网部署前务必用 `MONITOR_ADMIN_USER/PASS` 改掉，若将来恢复公网暴露还需同时启用 Basic Auth 或 Cloudflare Access。
 

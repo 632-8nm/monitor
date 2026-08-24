@@ -10,14 +10,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// terminalEnabled reports whether the embedded web terminal is on. The
-// terminal spawns an interactive shell as the service user, so it is
-// strictly opt-in via MONITOR_TERMINAL=1 and inherits whatever protection
-// fronts the dashboard (LAN-only in the current deployment).
-func terminalEnabled() bool {
-	return os.Getenv("MONITOR_TERMINAL") == "1"
-}
-
 var termUpgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
@@ -32,10 +24,6 @@ var termUpgrader = websocket.Upgrader{
 // frames carry terminal I/O; text frames carry JSON control messages
 // (resize). Disconnecting kills the shell — no orphan sessions.
 func (s *Server) TerminalHandler(w http.ResponseWriter, r *http.Request) {
-	if !s.terminal {
-		http.Error(w, "terminal disabled", http.StatusNotFound)
-		return
-	}
 	if !s.admin.configured() || !s.admin.valid(s.admin.tokenFromRequest(r)) {
 		http.Error(w, "admin session required", http.StatusUnauthorized)
 		return

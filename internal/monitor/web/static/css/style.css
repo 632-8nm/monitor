@@ -448,6 +448,18 @@ header h1 {
 	touch-action: none;
 }
 
+/* 内嵌模式（/admin 后台页）：占满容器，无浮层阴影 */
+.term-panel.term-embed {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	z-index: auto;
+	box-shadow: none;
+	border-radius: 10px;
+}
+
 /* ===== 管理员登录（终端收在 admin 会话后面） ===== */
 .term-login {
 	display: flex;

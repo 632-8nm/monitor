@@ -23,8 +23,7 @@ type SystemInfo struct {
 	CPUModel   string  `json:"cpu"`         // SoC from device-tree compatible
 	CPUMaxGHz  float64 `json:"cpu_max_ghz"` // rated max frequency, 0 if unknown
 	Cores      int     `json:"cores"`
-	Version    string  `json:"version"`  // monitor build version
-	Terminal   bool    `json:"terminal"` // web terminal enabled (MONITOR_TERMINAL=1)
+	Version    string  `json:"version"` // monitor build version
 }
 
 func readSystemInfo() SystemInfo {

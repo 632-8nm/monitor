@@ -11,11 +11,17 @@
 
 	const Panel = {
 		el: null,
+		container: null,
 		term: null,
 		fit: null,
 		ws: null,
 		depsLoaded: false,
 		connected: false,
+
+		// 内嵌到指定容器（/admin 后台页），而非独立悬浮窗口
+		attach(container) {
+			this.container = container;
+		},
 
 		async ensureDeps() {
 			if (this.depsLoaded) return;
@@ -44,16 +50,22 @@
 				</div>
 				<div class="term-body"></div>
 				<div class="term-resize"></div>`;
-			document.body.appendChild(this.el);
-			this.applyGeom(loadGeom());
+			if (this.container) {
+				// 内嵌模式（/admin）：占满容器，无拖动/拉伸/收起/关闭
+				this.el.classList.add('term-embed');
+				this.el.querySelector('[data-act="collapse"]').style.display = 'none';
+				this.el.querySelector('[data-act="close"]').style.display = 'none';
+				this.el.querySelector('.term-resize').style.display = 'none';
+				this.container.appendChild(this.el);
+			} else {
+				document.body.appendChild(this.el);
+				this.applyGeom(loadGeom());
+				this.enableDrag();
+				this.enableResize();
+			}
 			this.el.querySelector('[data-act="collapse"]').addEventListener('click', () => this.toggle());
 			this.el.querySelector('[data-act="close"]').addEventListener('click', () => this.close());
-			this.el.querySelector('[data-act="logout"]').addEventListener('click', async () => {
-				try { await fetch('/api/admin/logout', { method: 'POST' }); } catch (e) { /* ignore */ }
-				this.close();
-			});
-			this.enableDrag();
-			this.enableResize();
+			this.el.querySelector('[data-act="logout"]').addEventListener('click', () => this.logoutNow());
 		},
 
 		applyGeom(g) {
@@ -224,6 +236,19 @@
 			this.term = this.fit = this.ws = null;
 			if (this.el) this.el.remove();
 			this.el = null;
+		},
+
+		// 登出后：悬浮模式彻底关闭面板；内嵌模式回到登录表单
+		async logoutNow() {
+			try { await fetch('/api/admin/logout', { method: 'POST' }); } catch (e) { /* ignore */ }
+			if (this.ws) { this.ws.onclose = null; this.ws.close(); this.ws = null; }
+			if (this.term) { this.term.dispose(); this.term = this.fit = null; }
+			if (this.el) {
+				const body = this.el.querySelector('.term-body');
+				if (body) body.innerHTML = '';
+				if (this.container) this.renderLogin();
+				else this.close();
+			}
 		}
 	};
 

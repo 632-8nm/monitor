@@ -14,7 +14,6 @@ type Server struct {
 	collector      *Collector
 	alerter        *Alerter
 	system         SystemInfo
-	terminal       bool
 	admin          *adminAuth
 	basicAuthUser  string
 	basicAuthPass  string
@@ -28,13 +27,10 @@ func NewServer() *Server {
 	alerter := NewAlerterFromEnv()
 	alerter.board = system.BoardModel // notification titles carry the board model
 	admin := newAdminAuth()
-	// The web terminal needs both the feature switch and admin credentials
-	system.Terminal = terminalEnabled() && admin.configured()
 	return &Server{
 		collector:      &Collector{history: newHistory(), probe: &netProbe{}},
 		alerter:        alerter,
 		system:         system,
-		terminal:       terminalEnabled(),
 		admin:          admin,
 		basicAuthUser:  os.Getenv("MONITOR_BASIC_AUTH_USER"),
 		basicAuthPass:  os.Getenv("MONITOR_BASIC_AUTH_PASS"),
@@ -173,11 +169,25 @@ func (s *Server) Start(addr string) {
 		w.Write(index)
 	})))
 
+	// Admin backdoor: /admin serves the admin console (login gate + embedded
+	// web terminal). Reaching this page requires knowing the URL; the
+	// terminal itself additionally demands a valid admin session.
+	mux.Handle("/admin", s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page, err := embeddedFS.ReadFile("web/admin.html")
+		if err != nil {
+			http.Error(w, "admin.html not found", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(page)
+	})))
+
 	// API routes
 	mux.HandleFunc("/api/stats", s.StatsHandler)
 	mux.HandleFunc("/api/history", s.HistoryHandler)
 	mux.HandleFunc("/api/system", s.SystemHandler)
-	mux.HandleFunc("/ws/terminal", s.TerminalHandler) // self-guards when disabled
+	mux.HandleFunc("/ws/terminal", s.TerminalHandler) // requires an admin session
 
 	// Admin session endpoints (guard the terminal and future admin areas)
 	mux.HandleFunc("/api/admin/session", s.AdminSessionHandler)
