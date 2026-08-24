@@ -60,7 +60,7 @@ build.sh / install.sh / uninstall.sh   # 源码构建（支持 BUILD_ARCH 交叉
 
 ## 板子访问（局域网）
 
-`ssh <user>@<board-lan-ip>`（密码登录；本机曾配置免密）。sudo 需要密码，sudoers 仅对 systemctl/journalctl/tee 免密（CI 专用）。Windows 开发机 SSH 老版本不支持 `StrictHostKeyChecking=accept_new`，用 `no`。跨平台测试可 `GOOS=linux GOARCH=arm64` 编译后 scp 到板子临时端口实跑验证（用完清理，勿碰 8080 正式服务）。
+`ssh <user>@<board-lan-ip>`（实际用户名与局域网地址见板子网络配置——**私密信息，勿写入仓库**）。sudo 需要密码，sudoers 仅对 systemctl/journalctl/tee 免密（CI 专用）。Windows 开发机 SSH 老版本不支持 `StrictHostKeyChecking=accept_new`，用 `no`。跨平台测试可 `GOOS=linux GOARCH=arm64` 编译后 scp 到板子临时端口实跑验证（用完清理，勿碰 8080 正式服务）。
 
 ## Windows 开发机备忘
 
