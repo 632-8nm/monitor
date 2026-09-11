@@ -5,4 +5,4 @@ monitor_server
 *.swo
 .DS_Store
 .vscode/
-.idea/
+.idea/.zcode/
