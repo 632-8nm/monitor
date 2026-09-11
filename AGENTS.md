@@ -2,7 +2,7 @@
 
 本文件面向在本仓库工作的 AI 编码助手（ZCode 等），沉淀项目的架构决策、代码约定与历史结论。**新会话请先通读本文件**，避免重新讨论已经拍板的问题。
 
-> 项目原名 orangepi-monitor，已全面改名 monitor（仓库/module/包名/板上部署目录 `/opt/monitor`/发版包名）。文档中 Cloudflare 子域占位符写作 `monitor.<your-domain>`。
+> 项目曾用旧名（已全面改名为 monitor：仓库/module/包名/板上部署目录 `/opt/monitor`/发版包名）。文档中 Cloudflare 子域占位符写作 `monitor.<your-domain>`。
 
 ## 项目是什么
 
