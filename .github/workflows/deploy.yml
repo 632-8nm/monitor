@@ -80,12 +80,18 @@ jobs:
       - name: Copy binary and restart via Cloudflare Tunnel SSH
         run: |
           set -e
+          # Environment-specific values (tunnel hostname, board user) come
+          # from Secrets — nothing identifying the board lives in this file.
+          if [ -z "$TUNNEL_HOST" ] || [ -z "$BOARD_USER" ]; then
+            echo "❌ Secrets SSH_TUNNEL_HOST and BOARD_SSH_USER must be set"
+            exit 1
+          fi
           CF_ID="${CLOUDFLARED_TOKEN%%:*}"
           CF_SECRET="${CLOUDFLARED_TOKEN#*:}"
 
           # Start the cloudflared access tcp forwarding
           cloudflared access tcp \
-            --hostname ssh.632-8nm.cloud \
+            --hostname "$TUNNEL_HOST" \
             --url localhost:2222 \
             --service-token-id "$CF_ID" \
             --service-token-secret "$CF_SECRET" \
@@ -103,7 +109,7 @@ jobs:
           SSH_OPTS="$SSH_BASE -o ControlPersist=600"
           SSH_OK=0
           for i in $(seq 1 15); do
-            if ssh $SSH_OPTS -Nf orangepi@127.0.0.1 2>/dev/null; then
+            if ssh $SSH_OPTS -Nf ${BOARD_USER}@127.0.0.1 2>/dev/null; then
               SSH_OK=1
               break
             fi
@@ -114,12 +120,12 @@ jobs:
             cat /tmp/cf-tcp.log
             exit 1
           fi
-          trap "ssh -O exit -o ControlPath=$CTRL orangepi@127.0.0.1 2>/dev/null; kill $CF_PID 2>/dev/null || true" EXIT
+          trap "ssh -O exit -o ControlPath=$CTRL ${BOARD_USER}@127.0.0.1 2>/dev/null; kill $CF_PID 2>/dev/null || true" EXIT
 
           DEPLOY_DIR=/opt/monitor
 
           echo "==> Stopping the monitor service first (release the binary)"
-          ssh $SSH_BASE orangepi@127.0.0.1 "
+          ssh $SSH_BASE ${BOARD_USER}@127.0.0.1 "
             set -e
             sudo systemctl stop monitor || true
             sudo fuser -k 8080/tcp || true
@@ -135,7 +141,7 @@ jobs:
           echo "==> Transferring the binary to the board"
           transfer_ok=0
           for attempt in 1 2 3; do
-            if tar -czf - monitor_server | ssh $SSH_BASE orangepi@127.0.0.1 "
+            if tar -czf - monitor_server | ssh $SSH_BASE ${BOARD_USER}@127.0.0.1 "
               set -e
               tmp=\$(mktemp -d)
               tar -xzf - -C \$tmp
@@ -151,7 +157,7 @@ jobs:
           done
           if [ "$transfer_ok" != "1" ]; then
             echo "==> Transfer failed after retries — restarting the previous binary"
-            ssh $SSH_BASE orangepi@127.0.0.1 "sudo systemctl start monitor || true" || true
+            ssh $SSH_BASE ${BOARD_USER}@127.0.0.1 "sudo systemctl start monitor || true" || true
             exit 1
           fi
 
@@ -161,7 +167,7 @@ jobs:
           echo "==> Syncing runtime config (ServerChan key) from Secrets"
           if [ -n "$SERVERCHAN_KEY" ]; then
             ENV_FILE=/etc/default/monitor
-            printf 'MONITOR_SERVERCHAN_KEY=%s\n' "$SERVERCHAN_KEY" | ssh $SSH_BASE orangepi@127.0.0.1 "
+            printf 'MONITOR_SERVERCHAN_KEY=%s\n' "$SERVERCHAN_KEY" | ssh $SSH_BASE ${BOARD_USER}@127.0.0.1 "
               set -e
               (grep -v '^MONITOR_SERVERCHAN_KEY=' $ENV_FILE 2>/dev/null || true; cat) | sudo tee $ENV_FILE >/dev/null
               echo 'runtime config synced'
@@ -173,7 +179,7 @@ jobs:
           echo "==> Starting the monitor service over SSH"
           start_ok=0
           for attempt in 1 2 3; do
-            if ssh $SSH_BASE orangepi@127.0.0.1 "
+            if ssh $SSH_BASE ${BOARD_USER}@127.0.0.1 "
               set -e
               sudo systemctl start monitor
               sleep 2
@@ -193,3 +199,5 @@ jobs:
         env:
           CLOUDFLARED_TOKEN: ${{ secrets.CLOUDFLARED_TOKEN }}
           SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          TUNNEL_HOST: ${{ secrets.SSH_TUNNEL_HOST }}
+          BOARD_USER: ${{ secrets.BOARD_SSH_USER }}

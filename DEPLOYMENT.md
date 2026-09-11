@@ -65,6 +65,8 @@ CI/CD（GitHub 云端 runner，ubuntu-latest）
 | Workflow | `.github/workflows/release.yml` | push `v*` 标签触发，构建并发布 Release 包 |
 | Secret: `BOARD_SSH_KEY` | 板子 `~/.ssh/deploy` 私钥 | 云端 SSH 登录板子（两项目共用） |
 | Secret: `CLOUDFLARED_TOKEN` | `ClientID:ClientSecret` | cloudflared access 认证（两项目共用） |
+| Secret: `SSH_TUNNEL_HOST` | `ssh.<your-domain>` | 隧道 SSH 主机名（deploy.yml 零明文） |
+| Secret: `BOARD_SSH_USER` | 板子登录用户名 | deploy.yml 零明文 |
 
 ## 6. 从零搭建步骤
 
@@ -76,10 +78,10 @@ curl -L --output /usr/local/bin/cloudflared \
 chmod +x /usr/local/bin/cloudflared
 
 # 配置免密 sudo（仅 systemctl/journalctl/tee，供 CI 使用）
-sudo tee /etc/sudoers.d/orangepi-systemd <<'EOF'
-orangepi ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /bin/systemctl, /usr/bin/journalctl, /usr/bin/tee
+sudo tee /etc/sudoers.d/monitor-ci <<'EOF'
+<board-user> ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /bin/systemctl, /usr/bin/journalctl, /usr/bin/tee
 EOF
-sudo chmod 440 /etc/sudoers.d/orangepi-systemd
+sudo chmod 440 /etc/sudoers.d/monitor-ci
 
 # 生成 CI 部署密钥
 ssh-keygen -t ed25519 -N "" -f ~/.ssh/deploy
@@ -87,7 +89,7 @@ cat ~/.ssh/deploy.pub >> ~/.ssh/authorized_keys
 
 # 创建生产部署目录
 sudo mkdir -p /opt/monitor
-sudo chown orangepi:orangepi /opt/monitor
+sudo chown <board-user>:<board-user> /opt/monitor
 
 # 配置 systemd 服务（日志走 journald；WorkingDirectory 勿指向已删除的 actions-runner 目录）
 sudo tee /etc/systemd/system/monitor.service <<'EOF'
@@ -97,7 +99,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=orangepi
+User=<board-user>
 WorkingDirectory=/opt/monitor
 EnvironmentFile=-/etc/default/monitor
 ExecStart=/opt/monitor/monitor_server

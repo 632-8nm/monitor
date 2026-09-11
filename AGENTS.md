@@ -11,7 +11,7 @@
 ## 硬性规矩（违反即返工）
 
 1. **所有 git 写操作（add/commit/push/tag）必须先获得用户明确许可**。用户会逐次下达"提交推送"类指令。
-2. **仓库中不得出现真实域名**（曾做过两次全历史重写清除）。一律用 `<your-domain>` / `your-domain.example` 占位。`deploy.yml` 中的隧道 SSH 主机名是唯一保留的功能性例外。
+2. **仓库中不得出现真实域名或板子用户名**（曾做过多次全历史重写清除）。一律用 `<your-domain>` / `your-domain.example` 占位；deploy.yml 的隧道主机名与 SSH 用户名走 Secrets（`SSH_TUNNEL_HOST` / `BOARD_SSH_USER`），文件内零明文。
 3. **提交信息不得携带 Co-Authored-By: Claude 或任何 AI 署名尾注**。提交信息用英文 conventional commits 风格（feat/fix/perf/refactor/docs）。
 4. 语言分区：**Go 源码注释、CI 配置、shell 脚本逻辑用英文；README/DEPLOYMENT/前端 UI 用中文**。告警文案用中文（前缀自动带主板型号）。
 5. 全仓库 UTF-8 无 BOM、LF 行尾（`.gitattributes` 强制）。写文件后必须校验。
