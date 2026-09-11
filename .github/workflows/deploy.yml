@@ -120,7 +120,10 @@ jobs:
             cat /tmp/cf-tcp.log
             exit 1
           fi
-          trap "ssh -O exit -o ControlPath=$CTRL ${BOARD_USER}@127.0.0.1 2>/dev/null; kill $CF_PID 2>/dev/null || true" EXIT
+          # Cleanup must never fail the job: set +e first, otherwise a
+          # non-zero `ssh -O exit` under `set -e` would override the
+          # script's success status (seen as exit 255 on green deploys)
+          trap "set +e; ssh -O exit -o ControlPath=$CTRL ${BOARD_USER}@127.0.0.1 2>/dev/null; kill $CF_PID 2>/dev/null || true" EXIT
 
           DEPLOY_DIR=/opt/monitor
 
