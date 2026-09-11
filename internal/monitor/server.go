@@ -166,6 +166,36 @@ func (s *Server) Start(addr string) {
 		w.Write(index)
 	})))
 
-	// Admin backdoor: /admin serves the admin console (login gate + embedded
-	// web terminal). Reaching this page requires knowing the URL; the
-	// terminal itself additionally demands a valid admin session.
+	// API routes
+	mux.HandleFunc("/api/stats", s.StatsHandler)
+	mux.HandleFunc("/api/history", s.HistoryHandler)
+	mux.HandleFunc("/api/system", s.SystemHandler)
+
+	// Start fixed-period background collection; the API only reads snapshots
+	s.collector.Start()
+
+	// Threshold alerts: evaluated on a fixed period, delivered asynchronously
+	if s.alerter.enabled {
+		go func() {
+			ticker := time.NewTicker(alertCheckInterval)
+			defer ticker.Stop()
+			for range ticker.C {
+				s.alerter.Check(s.collector.Snapshot())
+			}
+		}()
+	}
+
+	fmt.Printf("[%s] 🚀 Monitor server listening on %s\n", time.Now().Format("15:04:05"), addr)
+	if s.basicAuthUser == "" || s.basicAuthPass == "" {
+		fmt.Println("⚠️ MONITOR_BASIC_AUTH_USER/PASS not set — running without authentication")
+	}
+	if s.corsAllowAll {
+		fmt.Println("⚠️ MONITOR_ALLOWED_ORIGINS not set — running with permissive CORS")
+	}
+	if s.alerter.enabled {
+		fmt.Printf("🔔 Alerting enabled via ServerChan (cooldown %s)\n", s.alerter.cooldown)
+	}
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		fmt.Printf("❌ Failed to start: %v\n", err)
+	}
+}
