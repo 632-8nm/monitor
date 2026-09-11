@@ -15,6 +15,7 @@
 3. **提交信息不得携带 Co-Authored-By: Claude 或任何 AI 署名尾注**。提交信息用英文 conventional commits 风格（feat/fix/perf/refactor/docs）。
 4. 语言分区：**Go 源码注释、CI 配置、shell 脚本逻辑用英文；README/DEPLOYMENT/前端 UI 用中文**。告警文案用中文（前缀自动带主板型号）。
 5. 全仓库 UTF-8 无 BOM、LF 行尾（`.gitattributes` 强制）。写文件后必须校验。
+6. **敏感值掩码输出**：查看或验证板上配置（密码、key、IP、内网拓扑）时，一律用掩码输出（如 `sed "s/=.*/=<set>/"`、`grep -c`），**绝不把真实值 cat/回显到对话或日志**；凭据只在必要时经环境变量/管道传递，不写进命令行字面量。真实的用户名、IP、对端地址、SSID、MAC 也不许出现在任何仓库文件中。
 
 ## 目录结构与构建
 

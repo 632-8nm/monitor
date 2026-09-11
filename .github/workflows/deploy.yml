@@ -93,12 +93,17 @@ jobs:
           CF_PID=$!
           trap "kill $CF_PID 2>/dev/null || true" EXIT
 
-          # Wait for the forwarding to be ready (SSH retry loop, no ss dependency)
-          echo "==> Waiting for the tunnel to be ready"
+          # Wait for the forwarding to be ready by establishing a ControlMaster
+          # connection: this first successful handshake becomes the shared
+          # master, so every later ssh (stop/transfer/sync/start) skips the
+          # tunnel+SSH handshake entirely.
+          echo "==> Waiting for the tunnel and opening the shared connection"
+          CTRL="/tmp/sshmux-2222"
+          SSH_BASE="-i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 -p 2222 -o ControlPath=$CTRL"
+          SSH_OPTS="$SSH_BASE -o ControlPersist=600"
           SSH_OK=0
           for i in $(seq 1 15); do
-            if ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-                -o ConnectTimeout=10 -p 2222 orangepi@127.0.0.1 'true' 2>/dev/null; then
+            if ssh $SSH_OPTS -Nf orangepi@127.0.0.1 2>/dev/null; then
               SSH_OK=1
               break
             fi
@@ -109,12 +114,12 @@ jobs:
             cat /tmp/cf-tcp.log
             exit 1
           fi
+          trap "ssh -O exit -o ControlPath=$CTRL orangepi@127.0.0.1 2>/dev/null; kill $CF_PID 2>/dev/null || true" EXIT
 
           DEPLOY_DIR=/opt/monitor
 
           echo "==> Stopping the monitor service first (release the binary)"
-          ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
+          ssh $SSH_BASE orangepi@127.0.0.1 "
             set -e
             sudo systemctl stop monitor || true
             sudo fuser -k 8080/tcp || true
@@ -128,10 +133,9 @@ jobs:
           # never truncates the previous binary; if all retries fail, the
           # previous service is restarted instead of leaving the board down.
           echo "==> Transferring the binary to the board"
-          SSH_OPTS="-i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -p 2222"
           transfer_ok=0
           for attempt in 1 2 3; do
-            if tar -czf - monitor_server | ssh $SSH_OPTS orangepi@127.0.0.1 "
+            if tar -czf - monitor_server | ssh $SSH_BASE orangepi@127.0.0.1 "
               set -e
               tmp=\$(mktemp -d)
               tar -xzf - -C \$tmp
@@ -147,7 +151,7 @@ jobs:
           done
           if [ "$transfer_ok" != "1" ]; then
             echo "==> Transfer failed after retries — restarting the previous binary"
-            ssh $SSH_OPTS orangepi@127.0.0.1 "sudo systemctl start monitor || true" || true
+            ssh $SSH_BASE orangepi@127.0.0.1 "sudo systemctl start monitor || true" || true
             exit 1
           fi
 
@@ -157,8 +161,7 @@ jobs:
           echo "==> Syncing runtime config (ServerChan key) from Secrets"
           if [ -n "$SERVERCHAN_KEY" ]; then
             ENV_FILE=/etc/default/monitor
-            printf 'MONITOR_SERVERCHAN_KEY=%s\n' "$SERVERCHAN_KEY" | ssh -i /tmp/board_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-                -o ConnectTimeout=15 -p 2222 orangepi@127.0.0.1 "
+            printf 'MONITOR_SERVERCHAN_KEY=%s\n' "$SERVERCHAN_KEY" | ssh $SSH_BASE orangepi@127.0.0.1 "
               set -e
               (grep -v '^MONITOR_SERVERCHAN_KEY=' $ENV_FILE 2>/dev/null || true; cat) | sudo tee $ENV_FILE >/dev/null
               echo 'runtime config synced'
@@ -170,7 +173,7 @@ jobs:
           echo "==> Starting the monitor service over SSH"
           start_ok=0
           for attempt in 1 2 3; do
-            if ssh $SSH_OPTS orangepi@127.0.0.1 "
+            if ssh $SSH_BASE orangepi@127.0.0.1 "
               set -e
               sudo systemctl start monitor
               sleep 2

@@ -6,3 +6,4 @@ monitor_server
 .DS_Store
 .vscode/
 .idea/.zcode/
+.zcode
