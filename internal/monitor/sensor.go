@@ -166,15 +166,28 @@ func (c *Collector) GetCPUTemp() string {
 	if runtime.GOOS == "windows" {
 		return "45.5°C"
 	}
-	data, err := os.ReadFile("/sys/class/thermal/thermal_zone0/temp")
+	milli, err := readCPUTempMilli()
 	if err != nil {
 		return "N/A"
 	}
-	raw := strings.TrimSpace(string(data))
-	if len(raw) >= 3 {
-		return fmt.Sprintf("%s.%s°C", raw[:2], raw[2:3])
+	return formatTemp(milli)
+}
+
+// readCPUTempMilli reads the CPU zone temperature in milli-degrees Celsius.
+func readCPUTempMilli() (int, error) {
+	data, err := os.ReadFile("/sys/class/thermal/thermal_zone0/temp")
+	if err != nil {
+		return 0, err
 	}
-	return raw + "°C"
+	var milli int
+	if _, err := fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &milli); err != nil {
+		return 0, err
+	}
+	return milli, nil
+}
+
+func formatTemp(milli int) string {
+	return fmt.Sprintf("%.1f°C", float64(milli)/1000.0)
 }
 
 func (c *Collector) GetCPUFreq() float64 {
@@ -331,6 +344,14 @@ func (c *Collector) collectFast() {
 				idlePct = 0
 			}
 		}
+		// iowait and system counters drift slightly negative across cores;
+		// clamp so the breakdown never shows impossible values
+		if ioPct < 0 {
+			ioPct = 0
+		}
+		if sysPct < 0 {
+			sysPct = 0
+		}
 		c.cpuPrev.ok, c.cpuPrev.user, c.cpuPrev.sys = true, t.User+t.Nice, t.System
 		c.cpuPrev.iowait, c.cpuPrev.steal, c.cpuPrev.total = t.Iowait, t.Steal, total
 	}
@@ -357,11 +378,15 @@ func (c *Collector) collectFast() {
 		c.prevNetSent = io[0].BytesSent
 	}
 
-	// Disk I/O rates
+	// Disk I/O rates — physical devices only, same filter as the slow
+	// tier's I/O quality so both tiers report a consistent picture
 	diskIO, _ := disk.IOCounters()
 	var diskReadSpeed, diskWriteSpeed float64
 	var totalDiskRead, totalDiskWrite uint64
-	for _, d := range diskIO {
+	for name, d := range diskIO {
+		if !physicalDisk(name) {
+			continue
+		}
 		totalDiskRead += d.ReadBytes
 		totalDiskWrite += d.WriteBytes
 	}
@@ -378,6 +403,8 @@ func (c *Collector) collectFast() {
 	if loadAvg != nil {
 		load1, load5, load15 = loadAvg.Load1, loadAvg.Load5, loadAvg.Load15
 	}
+	// sysfs read — kept outside the lock like every other collection step
+	cpuFreq := c.GetCPUFreq()
 
 	c.mu.Lock()
 	s := c.current
@@ -386,7 +413,7 @@ func (c *Collector) collectFast() {
 	s.CPUSys = sysPct
 	s.CPUIOWait = ioPct
 	s.CPUIdle = idlePct
-	s.CPUFreq = c.GetCPUFreq()
+	s.CPUFreq = cpuFreq
 	s.Cores = perCore
 	s.Load1, s.Load5, s.Load15 = load1, load5, load15
 	s.MemUsage = v.UsedPercent
@@ -467,6 +494,9 @@ func (c *Collector) collectSlow() {
 	cpuTemp := c.GetCPUTemp()
 	uptime, _ := host.Uptime()
 	wifiLink, wifiDbm := readWiFi()
+	// Process scan is expensive (a full /proc walk) — run it outside the
+	// lock so /api/stats readers are never blocked by a slow tick
+	topProcs := c.topProcs()
 
 	// Physical mount points (/, /var/log, external drives...). Bind mounts
 	// like /var/log.hdd share the root device — dedupe by device so only
@@ -517,7 +547,7 @@ func (c *Collector) collectSlow() {
 	s.DiskIOPS = iops
 	s.WifiLink = wifiLink
 	s.WifiDbm = wifiDbm
-	s.TopProcs = c.topProcs()
+	s.TopProcs = topProcs
 	s.Uptime = uptime
 	c.current = s
 	c.mu.Unlock()

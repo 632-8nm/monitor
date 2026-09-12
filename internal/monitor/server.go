@@ -1,12 +1,16 @@
 package monitor
 
 import (
+	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -69,7 +73,13 @@ func (s *Server) isAuthorized(r *http.Request) bool {
 		return true
 	}
 	user, pass, ok := r.BasicAuth()
-	return ok && user == s.basicAuthUser && pass == s.basicAuthPass
+	if !ok {
+		return false
+	}
+	// Constant-time comparisons to avoid leaking credentials via timing
+	userOK := subtle.ConstantTimeCompare([]byte(user), []byte(s.basicAuthUser))
+	passOK := subtle.ConstantTimeCompare([]byte(pass), []byte(s.basicAuthPass))
+	return userOK&passOK == 1
 }
 
 // preflight handles CORS and authentication for API endpoints. It returns
@@ -195,7 +205,25 @@ func (s *Server) Start(addr string) {
 	if s.alerter.enabled {
 		fmt.Printf("🔔 Alerting enabled via ServerChan (cooldown %s)\n", s.alerter.cooldown)
 	}
-	if err := http.ListenAndServe(addr, mux); err != nil {
+
+	srv := &http.Server{
+		Addr:        addr,
+		Handler:     mux,
+		ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
+	}
+
+	// Graceful shutdown on SIGINT/SIGTERM: systemd restarts get a clean
+	// connection drain instead of an abrupt kill
+	go func() {
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+		<-stop
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		srv.Shutdown(ctx)
+	}()
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		fmt.Printf("❌ Failed to start: %v\n", err)
 	}
 }
