@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
@@ -112,6 +113,33 @@ func (s *Server) StatsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
+// gzipResponseWriter funnels handler output through a gzip encoder.
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	gz *gzip.Writer
+}
+
+func (g *gzipResponseWriter) Write(b []byte) (int, error) {
+	return g.gz.Write(b)
+}
+
+// gzipIfAccepted compresses responses when the client advertises gzip
+// support. The big win is /api/history: 24h of trend points encode to
+// ~300KB of highly repetitive JSON that shrinks to ~40KB.
+func gzipIfAccepted(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Add("Vary", "Accept-Encoding")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		next.ServeHTTP(&gzipResponseWriter{ResponseWriter: w, gz: gz}, r)
+	})
+}
+
 // HistoryHandler serves the in-memory trend points (24h, one point per 10s)
 func (s *Server) HistoryHandler(w http.ResponseWriter, r *http.Request) {
 	if !s.preflight(w, r) {
@@ -176,10 +204,11 @@ func (s *Server) Start(addr string) {
 		w.Write(index)
 	})))
 
-	// API routes
-	mux.HandleFunc("/api/stats", s.StatsHandler)
-	mux.HandleFunc("/api/history", s.HistoryHandler)
-	mux.HandleFunc("/api/system", s.SystemHandler)
+	// API routes — gzip-compressed when the client asks for it
+	api := gzipIfAccepted
+	mux.Handle("/api/stats", api(http.HandlerFunc(s.StatsHandler)))
+	mux.Handle("/api/history", api(http.HandlerFunc(s.HistoryHandler)))
+	mux.Handle("/api/system", api(http.HandlerFunc(s.SystemHandler)))
 
 	// Start fixed-period background collection; the API only reads snapshots
 	s.collector.Start()
