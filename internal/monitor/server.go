@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/subtle"
@@ -11,9 +12,16 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
+
+// maxConcurrent caps in-flight requests across the whole server. The board
+// has four small cores: without a cap, a flood of /api/history requests
+// could pin the CPU (each miss re-encodes and re-gzips ~300KB). Over the
+// cap, requests get an instant 503 instead of piling up.
+const maxConcurrent = 20
 
 type Server struct {
 	collector      *Collector
@@ -23,6 +31,15 @@ type Server struct {
 	basicAuthPass  string
 	allowedOrigins map[string]struct{}
 	corsAllowAll   bool
+
+	// /api/history response cache. The trend buffer only changes every
+	// 10s, so re-encoding (and re-gzipping) ~300KB of JSON per request is
+	// pure waste — and under a flood it is a CPU-amplified DoS vector.
+	histMu    sync.Mutex
+	histRaw   []byte
+	histGz    []byte
+	histAt    time.Time
+	histValid bool
 }
 
 func NewServer() *Server {
@@ -140,14 +157,40 @@ func gzipIfAccepted(next http.Handler) http.Handler {
 	})
 }
 
-// HistoryHandler serves the in-memory trend points (24h, one point per 10s)
+// HistoryHandler serves the in-memory trend points (24h, one point per 10s).
+// The payload only changes at the sample cadence, so both the raw and the
+// gzip form are cached for historyInterval and reused verbatim — a flood
+// of requests rewrites cached bytes instead of re-encoding ~300KB each time.
 func (s *Server) HistoryHandler(w http.ResponseWriter, r *http.Request) {
 	if !s.preflight(w, r) {
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
 
-	json.NewEncoder(w).Encode(s.collector.HistorySnapshot())
+	s.histMu.Lock()
+	if !s.histValid || time.Since(s.histAt) >= historyInterval {
+		raw, err := json.Marshal(s.collector.HistorySnapshot())
+		if err != nil {
+			s.histMu.Unlock()
+			http.Error(w, "encode failed", http.StatusInternalServerError)
+			return
+		}
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		gz.Write(raw)
+		gz.Close()
+		s.histRaw, s.histGz, s.histAt, s.histValid = raw, buf.Bytes(), time.Now(), true
+	}
+	raw, gz := s.histRaw, s.histGz
+	s.histMu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "max-age=10")
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Write(gz)
+		return
+	}
+	w.Write(raw)
 }
 
 // SystemHandler serves the static machine identity (OS, kernel, board, CPU)
@@ -176,6 +219,23 @@ type nocacheFS struct{ h http.Handler }
 func (n *nocacheFS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	n.h.ServeHTTP(w, r)
+}
+
+// limitConcurrency caps in-flight requests server-wide. When the cap is
+// reached it sheds load instantly with 503 instead of queueing — queueing
+// would only deepen the pileup under a flood.
+func limitConcurrency(next http.Handler) http.Handler {
+	sem := make(chan struct{}, maxConcurrent)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case sem <- struct{}{}:
+			defer func() { <-sem }()
+			next.ServeHTTP(w, r)
+		default:
+			w.Header().Set("Retry-After", "5")
+			http.Error(w, "server busy", http.StatusServiceUnavailable)
+		}
+	})
 }
 
 func (s *Server) Start(addr string) {
@@ -224,10 +284,12 @@ func (s *Server) Start(addr string) {
 		})))
 	}
 
-	// API routes — gzip-compressed when the client asks for it
+	// API routes — gzip-compressed when the client asks for it.
+	// /api/history manages its own cached gzip form and must NOT be
+	// double-wrapped by the middleware.
 	api := gzipIfAccepted
 	mux.Handle("/api/stats", api(http.HandlerFunc(s.StatsHandler)))
-	mux.Handle("/api/history", api(http.HandlerFunc(s.HistoryHandler)))
+	mux.Handle("/api/history", http.HandlerFunc(s.HistoryHandler))
 	mux.Handle("/api/system", api(http.HandlerFunc(s.SystemHandler)))
 
 	// Start fixed-period background collection; the API only reads snapshots
@@ -257,7 +319,7 @@ func (s *Server) Start(addr string) {
 
 	srv := &http.Server{
 		Addr:        addr,
-		Handler:     mux,
+		Handler:     limitConcurrency(mux),
 		ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 
