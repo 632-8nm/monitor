@@ -131,9 +131,18 @@ type Collector struct {
 // API requests only read the snapshot. The internet probe runs on its own
 // schedule.
 func (c *Collector) Start() {
+	c.history.load(persistFile)
 	c.probe.start()
 	c.collectFast()
 	c.collectSlow()
+	// Periodic disk persistence keeps the 24h trend across reboots
+	go func() {
+		ticker := time.NewTicker(persistInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			c.history.save(persistFile)
+		}
+	}()
 	go func() {
 		fast := time.NewTicker(collectInterval)
 		slow := time.NewTicker(slowInterval)

@@ -27,6 +27,10 @@ jobs:
       - name: Build
         run: CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -trimpath ./cmd/monitor
 
+      - name: Test
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: go test ./...
+
   build:
     name: Build arm64 binary
     runs-on: ubuntu-latest

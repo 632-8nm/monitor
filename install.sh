@@ -82,6 +82,8 @@ MONITOR_LISTEN_ADDR=127.0.0.1:8080
 # MONITOR_ALERT_MEM=90      (内存阈值 %，0 = 禁用)
 # MONITOR_ALERT_DISK=90     (磁盘阈值 %，0 = 禁用)
 # MONITOR_ALERT_COOLDOWN=30 (同一告警重发间隔，分钟)
+# MONITOR_ALERT_NETOFFLINE=1 (外网离线告警，0 = 禁用)
+# MONITOR_ALERT_WIFI=35      (WiFi 链路质量阈值，0 = 禁用)
 EOT
 fi
 

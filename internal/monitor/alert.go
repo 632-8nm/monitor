@@ -17,7 +17,9 @@ const (
 	defaultTempAlert   = 70.0
 	defaultMemAlert    = 90.0
 	defaultDiskAlert   = 90.0
-	defaultCooldown    = 30 * time.Minute
+	// WiFi link quality out of 70; below half the scale is "weak"
+	defaultWifiAlert = 35.0
+	defaultCooldown  = 30 * time.Minute
 	// Hysteresis: a rule only leaves the breach state once the value drops
 	// this far below the threshold, which prevents flapping notifications.
 	tempHysteresis = 5.0
@@ -32,11 +34,31 @@ type alertRule struct {
 	unit       string
 	threshold  float64
 	hysteresis float64
-	value      func(SystemStats) float64
+	// less flips the comparison to "value <= threshold breaches" (e.g. a
+	// weakening WiFi signal); recovery is then "back above threshold+hysteresis"
+	less  bool
+	value func(SystemStats) float64
 
 	breachSince time.Time // nonzero while in breach
 	notified    bool      // a breach notification was sent for this episode
 	lastSent    time.Time
+}
+
+// breached reports whether the metric is currently in the breach state.
+func (r *alertRule) breached(v float64) bool {
+	if r.less {
+		return v <= r.threshold
+	}
+	return v >= r.threshold
+}
+
+// recovered reports whether a breaching metric has cleared threshold plus
+// hysteresis, preventing flapping right at the boundary.
+func (r *alertRule) recovered(v float64) bool {
+	if r.less {
+		return v >= r.threshold+r.hysteresis
+	}
+	return v <= r.threshold-r.hysteresis
 }
 
 // maxThermal returns the hottest thermal zone (falling back to the legacy
@@ -88,6 +110,23 @@ func NewAlerterFromEnv() *Alerter {
 			}
 			return peak
 		}},
+		{name: "外网", env: "MONITOR_ALERT_NETOFFLINE", unit: "", threshold: envFloat("MONITOR_ALERT_NETOFFLINE", 1), hysteresis: 1, less: true, value: func(s SystemStats) float64 {
+			// 0 when online, 1 when offline: breaches while the egress is
+			// down. The breach push itself will fail (no network) — what
+			// reaches WeChat is the recovery notice once it's back.
+			if s.NetOnline {
+				return 0
+			}
+			return 1
+		}},
+		{name: "WiFi 信号", env: "MONITOR_ALERT_WIFI", unit: "", threshold: envFloat("MONITOR_ALERT_WIFI", defaultWifiAlert), hysteresis: 5, less: true, value: func(s SystemStats) float64 {
+			// No wireless interface (link 0) reads as a perfect signal so
+			// wired boards never trip this rule
+			if s.WifiLink == 0 {
+				return 100
+			}
+			return s.WifiLink
+		}},
 	}
 	return a
 }
@@ -105,26 +144,30 @@ func (a *Alerter) Check(stats SystemStats) {
 		}
 		v := r.value(stats)
 		switch {
-		case v >= r.threshold:
+		case r.breached(v):
 			if r.breachSince.IsZero() {
 				r.breachSince = now
 			}
 			if now.Sub(r.lastSent) >= a.cooldown {
 				r.notified = true
 				r.lastSent = now
+				relation := "超过阈值"
+				if r.less {
+					relation = "跌破阈值"
+				}
 				go a.notify(
 					fmt.Sprintf("⚠️ %s%s告警", a.prefix(), r.name),
-					fmt.Sprintf("**%s**: %.1f%s，超过阈值 %.0f%s\n\n> %s",
-						r.name, v, r.unit, r.threshold, r.unit, now.Format("2006-01-02 15:04:05")))
+					fmt.Sprintf("**%s**: %.1f%s，%s %.0f%s\n\n> %s",
+						r.name, v, r.unit, relation, r.threshold, r.unit, now.Format("2006-01-02 15:04:05")))
 			}
-		case !r.breachSince.IsZero() && v <= r.threshold-r.hysteresis:
+		case !r.breachSince.IsZero() && r.recovered(v):
 			episode := now.Sub(r.breachSince).Round(time.Minute)
 			r.breachSince = time.Time{}
 			if r.notified {
 				r.notified = false
 				go a.notify(
 					fmt.Sprintf("✅ %s%s已恢复", a.prefix(), r.name),
-					fmt.Sprintf("**%s**: %.1f%s 已回落到阈值以下（本次持续约 %s）", r.name, v, r.unit, episode))
+					fmt.Sprintf("**%s**: %.1f%s 已恢复正常（本次持续约 %s）", r.name, v, r.unit, episode))
 			}
 		}
 	}

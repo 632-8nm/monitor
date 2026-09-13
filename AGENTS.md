@@ -23,7 +23,7 @@
 cmd/monitor/main.go        # 唯一 main 包，读 MONITOR_LISTEN_ADDR 并启动
 internal/monitor/          # 核心库（package monitor，不对外暴露）
   sensor.go                # 采集器：快档 2s / 慢档 10s 双 ticker 单 goroutine
-  history.go               # 24h 趋势环形缓冲（固定 8640 点，纯内存约 240KB，重启即清——刻意不持久化）
+  history.go               # 24h 趋势环形缓冲（固定 8640 点，纯内存约 240KB；每分钟落盘 history.json，重启回载）
   server.go                # HTTP：/api/stats /api/history /api/system + 内嵌前端
   alert.go                 # Server酱 告警：阈值 + 滞回 + 冷却 + 恢复通知
   probe.go                 # 外网连通性：每 30s TCP 握手公共 DNS
@@ -46,13 +46,13 @@ build.sh / install.sh / uninstall.sh   # 源码构建（支持 BUILD_ARCH 交叉
 - **WiFi**：`/proc/net/wireless` 的 dBm 有效（-20 ~ -200）时优先用 dBm 分级，占位值（-256，H618 老驱动）时退回 link quality（满值 70）。
 - **温度区**：sysfs 枚举按 `MONITOR_THERMAL_ZONES`（默认 `cpu,npu`，子串匹配）过滤，如 rockchip 可设 `cpu,npu,soc`；告警取各区最大值。
 - **磁盘**：挂载点按设备去重（剔除 /var/log.hdd 这类 bind）；小分区自适应 MB 单位；I/O 质量从 IoTime/读写耗时差值算，只统计物理设备（mmc/sd/nvme/vd/hd 前缀）。
-- **趋势图不持久化**是刻意取舍（用户知情），内存恒定 ~240KB 不会增长。持久化在路线图上但未排期。
+- **趋势持久化**：环形缓冲每分钟原子落盘 history.json（临时文件+rename 防截断），启动回载并丢弃超龄点；优雅关闭时补一次落盘。内存恒定 ~240KB 不会增长。
 - **敏感信息分级**（用户当前选择"暴露管理"而非鉴权）：进程名/内核版本等已在公网页面展示，这是用户明确接受的权衡，**不要反复劝告启用鉴权**；但登录用户名、IP、对端地址、SSID、MAC 永远不许上页面。
 - `sysinfo.go` 的 OS/CPU 显示对齐 fastfetch 的取数逻辑（NAME 首词 + /etc/debian_version + 架构；CPU 用 device-tree compatible 最后一条去厂商前缀），主频用静态 cpuinfo_max_freq，实时频率只在处理器卡。页面标题与告警前缀动态使用主板型号。
 
 ## 环境变量（/etc/default/monitor）
 
-`MONITOR_LISTEN_ADDR`（默认 127.0.0.1:8080）、`MONITOR_BASIC_AUTH_USER/PASS`（未设=无鉴权兼容模式）、`MONITOR_ALLOWED_ORIGINS`、`MONITOR_SERVERCHAN_KEY`（设了才启用告警）、`MONITOR_ALERT_TEMP/MEM/DISK`（默认 70/90/90，0 禁用）、`MONITOR_ALERT_COOLDOWN`（默认 30 分钟，保护免费版每日 5 条额度）、`MONITOR_THERMAL_ZONES`（默认 cpu,npu）。
+`MONITOR_LISTEN_ADDR`（默认 127.0.0.1:8080）、`MONITOR_BASIC_AUTH_USER/PASS`（未设=无鉴权兼容模式）、`MONITOR_ALLOWED_ORIGINS`、`MONITOR_SERVERCHAN_KEY`（设了才启用告警）、`MONITOR_ALERT_TEMP/MEM/DISK`（默认 70/90/90，0 禁用）、`MONITOR_ALERT_COOLDOWN`（默认 30 分钟，保护免费版每日 5 条额度）、`MONITOR_THERMAL_ZONES`（默认 cpu,npu）、`MONITOR_ALERT_NETOFFLINE`（默认 1 启用，0 禁用）、`MONITOR_ALERT_WIFI`（默认 35，0 禁用）。
 
 ## 部署链路（push main 后自动发生）
 
@@ -73,4 +73,4 @@ build.sh / install.sh / uninstall.sh   # 源码构建（支持 BUILD_ARCH 交叉
 
 ## 路线图（用户已知晓、未排期）
 
-历史持久化（重启不丢趋势，方案：每分钟落一个 JSON 快照、启动回载）；告警渠道扩展（Telegram/Bark）；鉴权（Basic Auth 代码就绪或 Cloudflare Access，用户明确搁置）；CI 加 lint/test 步骤；gopsutil v3→v4；更多发版架构（linux/arm、windows/amd64）按需加矩阵即可。
+告警渠道扩展（Telegram/Bark）；鉴权（Basic Auth 代码就绪或 Cloudflare Access，用户明确搁置）；CI 加 lint/test 步骤；gopsutil v3→v4；更多发版架构（linux/arm、windows/amd64）按需加矩阵即可。

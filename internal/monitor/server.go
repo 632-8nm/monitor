@@ -204,6 +204,26 @@ func (s *Server) Start(addr string) {
 		w.Write(index)
 	})))
 
+	// PWA assets at the root scope (service workers must live at / to
+	// control the whole origin)
+	for _, pwa := range []string{"/manifest.json", "/sw.js"} {
+		name := pwa
+		mux.Handle(name, s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			data, err := embeddedFS.ReadFile("web" + name)
+			if err != nil {
+				http.Error(w, "not found", http.StatusNotFound)
+				return
+			}
+			w.Header().Set("Cache-Control", "no-cache")
+			ct := "application/javascript"
+			if name == "/manifest.json" {
+				ct = "application/manifest+json"
+			}
+			w.Header().Set("Content-Type", ct)
+			w.Write(data)
+		})))
+	}
+
 	// API routes — gzip-compressed when the client asks for it
 	api := gzipIfAccepted
 	mux.Handle("/api/stats", api(http.HandlerFunc(s.StatsHandler)))
@@ -241,8 +261,11 @@ func (s *Server) Start(addr string) {
 		ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 
-	// Graceful shutdown on SIGINT/SIGTERM: systemd restarts get a clean
-	// connection drain instead of an abrupt kill
+	// Graceful shutdown on SIGINT/SIGTERM: drain connections, then flush
+	// the trend buffer to disk. done keeps main from exiting before the
+	// save completes — ListenAndServe returns the instant Shutdown starts,
+	// which would otherwise kill this goroutine mid-flight.
+	done := make(chan struct{})
 	go func() {
 		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -250,9 +273,12 @@ func (s *Server) Start(addr string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		srv.Shutdown(ctx)
+		s.collector.history.save(persistFile)
+		close(done)
 	}()
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		fmt.Printf("❌ Failed to start: %v\n", err)
 	}
+	<-done
 }
