@@ -110,10 +110,12 @@ func NewAlerterFromEnv() *Alerter {
 			}
 			return peak
 		}},
-		{name: "外网", env: "MONITOR_ALERT_NETOFFLINE", unit: "", threshold: envFloat("MONITOR_ALERT_NETOFFLINE", 1), hysteresis: 1, less: true, value: func(s SystemStats) float64 {
-			// 0 when online, 1 when offline: breaches while the egress is
-			// down. The breach push itself will fail (no network) — what
-			// reaches WeChat is the recovery notice once it's back.
+		{name: "外网", env: "MONITOR_ALERT_NETOFFLINE", unit: "", threshold: envFloat("MONITOR_ALERT_NETOFFLINE", 1), hysteresis: 1, value: func(s SystemStats) float64 {
+			// 1 when offline, 0 when online — a plain high-threshold rule:
+			// offline (1 >= 1) breaches, online (0 < 1) never does, and
+			// recovery lands at 0 <= threshold-hysteresis. The breach push
+			// itself cannot be delivered while offline — what reaches
+			// WeChat is the recovery notice once the egress is back.
 			if s.NetOnline {
 				return 0
 			}

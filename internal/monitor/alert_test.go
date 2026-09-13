@@ -134,6 +134,43 @@ func TestAlertLessRule(t *testing.T) {
 	}
 }
 
+func TestAlertNetOfflineDirection(t *testing.T) {
+	// Regression: the offline rule must be a plain high-threshold rule.
+	// An earlier version combined online=0/offline=1 with a less
+	// comparison, which made 0 <= 1 always true — the dashboard spammed
+	// offline alerts while the network was perfectly fine.
+	stub := &stubTransport{}
+	a := &Alerter{
+		enabled:  true,
+		key:      "testkey",
+		cooldown: time.Hour,
+		client:   &http.Client{Transport: stub},
+		rules: []*alertRule{
+			{name: "外网", threshold: 1, hysteresis: 1, value: func(s SystemStats) float64 {
+				if s.NetOnline {
+					return 0
+				}
+				return 1
+			}},
+		},
+	}
+	a.Check(SystemStats{NetOnline: true})
+	waitAsync()
+	if stub.hits != 0 {
+		t.Fatalf("online state fired the offline rule (%d notifications)", stub.hits)
+	}
+	a.Check(SystemStats{NetOnline: false})
+	waitAsync()
+	if stub.hits != 1 {
+		t.Fatalf("offline produced %d notifications, want 1", stub.hits)
+	}
+	a.Check(SystemStats{NetOnline: true})
+	waitAsync()
+	if stub.hits != 2 {
+		t.Fatalf("recovery produced %d new notifications, want 1", stub.hits-1)
+	}
+}
+
 func TestMaxThermalUsesHottestZone(t *testing.T) {
 	stats := SystemStats{
 		CPUTemp:  "60.0°C",
