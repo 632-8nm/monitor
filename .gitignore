@@ -1,9 +1,19 @@
+# 构建产物
 monitor_server
+/dist/
 *.exe
+*.tgz
+
+# 运行时状态（程序在工作目录生成）
+history.json
+history.json.tmp
+
+# 编辑器 / 系统
 .vscode/
+.idea/
 *.swp
 *.swo
 .DS_Store
-.vscode/
-.idea/.zcode/
-.zcode
+
+# AI 工具本地数据
+.zcode/

@@ -12,6 +12,7 @@
 * **24 小时趋势图**：每 10 秒一个点，每分钟落盘持久化（重启不丢历史），Canvas 折线图展示 CPU / 温度 / 内存 / 网络趋势，无需数据库即可回答"昨晚温度为什么飙高"。
 * **全自动部署**：GitHub Actions 云端交叉编译 arm64 二进制，经 Cloudflare Tunnel 部署到板端，`git push` 即发布。
 * **单文件部署**：前端通过 `go:embed` 嵌入二进制，发布与部署只交付一个可执行文件。
+* **PWA 支持**：响应式深色界面，手机浏览器「添加到主屏幕」即得全屏 App；断网时页面壳仍可打开（数据仅在联网时实时展示）。
 * **掉电自愈**：监控程序与内网穿透均注册为 Systemd 服务，开机自启、崩溃自动拉起。
 
 ## 项目结构
@@ -20,13 +21,15 @@
 ├── cmd/monitor/            # 程序入口（package main）
 ├── internal/monitor/       # 核心库包（package monitor）
 │   ├── sensor.go           # 指标采集（快档 2s / 慢档 10s 分层）
-│   ├── history.go          # 24h 趋势环形缓冲（纯内存）
-│   ├── server.go           # HTTP 服务（API + 内嵌前端）
-│   ├── alert.go            # Server酱 告警（阈值 / 冷却 / 恢复通知）
+│   ├── history.go          # 24h 趋势环形缓冲
+│   ├── persistence.go      # 趋势落盘与回载（history.json）
+│   ├── server.go           # HTTP 服务（API + 内嵌前端 + 并发上限）
+│   ├── alert.go            # Server酱 告警（阈值 / 冷却 / 恢复，5 条规则）
 │   ├── probe.go            # 外网连通性探测
 │   ├── sysinfo.go          # 静态系统信息（OS / 板型 / SoC / 版本）
 │   ├── assets.go           # go:embed 前端资源声明
-│   └── web/                # 前端源文件（编译时嵌入二进制）
+│   ├── *_test.go           # 单元测试（history / alert / server / 工具）
+│   └── web/                # 前端源文件 + PWA（manifest / sw.js / 图标）
 ├── build.sh                # 源码编译 + 安装（本机自建入口）
 ├── install.sh              # 安装预编译二进制 + 注册 systemd 服务
 ├── uninstall.sh            # 卸载上述全部产物
@@ -104,7 +107,7 @@ git clone <本仓库> && cd monitor
 
 ## 告警推送（Server酱 → 微信）
 
-设置 `MONITOR_SERVERCHAN_KEY` 后启用告警：温度 / 内存 / 磁盘越过阈值时通过 [Server酱](https://sct.ftqq.com)（微信扫码登录获取 SendKey）推送到微信，回落到阈值以下会再推一条恢复通知。相关环境变量：
+设置 `MONITOR_SERVERCHAN_KEY` 后启用告警：温度 / 内存 / 磁盘越过阈值、外网离线、WiFi 信号劣化时通过 [Server酱](https://sct.ftqq.com)（微信扫码登录获取 SendKey）推送到微信，恢复正常后会再推一条恢复通知。相关环境变量：
 
 * `MONITOR_SERVERCHAN_KEY`：Server酱 SendKey（未设置则告警功能整体关闭）
 * `MONITOR_ALERT_TEMP`：温度告警阈值 °C（默认 70，0 禁用）

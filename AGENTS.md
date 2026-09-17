@@ -23,19 +23,21 @@
 cmd/monitor/main.go        # 唯一 main 包，读 MONITOR_LISTEN_ADDR 并启动
 internal/monitor/          # 核心库（package monitor，不对外暴露）
   sensor.go                # 采集器：快档 2s / 慢档 10s 双 ticker 单 goroutine
-  history.go               # 24h 趋势环形缓冲（固定 8640 点，纯内存约 240KB；每分钟落盘 history.json，重启回载）
-  server.go                # HTTP：/api/stats /api/history /api/system + 内嵌前端
-  alert.go                 # Server酱 告警：阈值 + 滞回 + 冷却 + 恢复通知
-  probe.go                 # 外网连通性：每 30s TCP 握手公共 DNS
+  history.go               # 24h 趋势环形缓冲（固定 8640 点，纯内存约 240KB）
+  persistence.go           # 趋势落盘/回载（history.json，原子写）
+  server.go                # HTTP：/api/stats /api/history /api/system + 内嵌前端 + 并发上限
+  alert.go                 # Server酱 告警：阈值/滞回/冷却/恢复，5 条规则
+  probe.go                 # 外网连通性：每 30s TCP 握手公共 DNS（连续 2 次失败才判离线）
   sysinfo.go               # 静态系统信息（启动读一次，fastfetch 同源取数）
   assets.go                # //go:embed web 声明
-  web/                     # 前端源（必须留在本包内，embed 路径相对源文件）
+  *_test.go                # 单元测试（history/alert/server/工具函数）
+  web/                     # 前端源 + PWA（manifest/sw.js/icons，embed 路径相对源文件）
 build.sh / install.sh / uninstall.sh   # 源码构建（支持 BUILD_ARCH 交叉编译）/安装预编译包/卸载
-.github/workflows/deploy.yml           # push main → 多平台编译检查 → 云编译 → 隧道 SSH 部署到板子
+.github/workflows/deploy.yml           # push main → 多平台编译检查 + go test → 云编译 → 隧道 SSH 部署
 .github/workflows/release.yml          # push v* tag → 多架构打包发 GitHub Release（linux arm64+amd64）
 ```
 
-构建命令：`go build -trimpath -ldflags="-w -X monitor/internal/monitor.Version=<版本>" ./cmd/monitor`。版本注入路径含包全路径，移动包或改 module 名时必须同步改 deploy.yml / release.yml / build.sh 三处。提交前跑 `gofmt -l . && go vet ./...`。
+构建命令：`go build -trimpath -ldflags="-w -X monitor/internal/monitor.Version=<版本>" ./cmd/monitor`。版本注入路径含包全路径，移动包或改 module 名时必须同步改 deploy.yml / release.yml / build.sh 三处。提交前跑 `gofmt -l . && go vet ./... && go test ./...`。
 
 前端改动要 bump 缓存版本号（`web/index.html` 里 `app.js?v=N` / `style.css?v=N`）。
 
@@ -47,6 +49,7 @@ build.sh / install.sh / uninstall.sh   # 源码构建（支持 BUILD_ARCH 交叉
 - **温度区**：sysfs 枚举按 `MONITOR_THERMAL_ZONES`（默认 `cpu,npu`，子串匹配）过滤，如 rockchip 可设 `cpu,npu,soc`；告警取各区最大值。
 - **磁盘**：挂载点按设备去重（剔除 /var/log.hdd 这类 bind）；小分区自适应 MB 单位；I/O 质量从 IoTime/读写耗时差值算，只统计物理设备（mmc/sd/nvme/vd/hd 前缀）。
 - **趋势持久化**：环形缓冲每分钟原子落盘 history.json（临时文件+rename 防截断），启动回载并丢弃超龄点；优雅关闭时补一次落盘。内存恒定 ~240KB 不会增长。
+- **并发上限 20**：server 最外层信号量，超载立即 503 + Retry-After（不排队，排队会加深堆积）。`/api/history` 的原始 JSON 与 gzip 两种形态缓存 10s（与采样周期对齐）——这是防局域网 DoS 的关键：洪峰下回写缓存字节而非重新编码压缩 300KB。
 - **敏感信息分级**（用户当前选择"暴露管理"而非鉴权）：进程名/内核版本等已在公网页面展示，这是用户明确接受的权衡，**不要反复劝告启用鉴权**；但登录用户名、IP、对端地址、SSID、MAC 永远不许上页面。
 - `sysinfo.go` 的 OS/CPU 显示对齐 fastfetch 的取数逻辑（NAME 首词 + /etc/debian_version + 架构；CPU 用 device-tree compatible 最后一条去厂商前缀），主频用静态 cpuinfo_max_freq，实时频率只在处理器卡。页面标题与告警前缀动态使用主板型号。
 
@@ -69,8 +72,8 @@ build.sh / install.sh / uninstall.sh   # 源码构建（支持 BUILD_ARCH 交叉
 - Go 代理：`GOPROXY=https://goproxy.cn,direct`（默认代理被墙）。
 - 本机跑监控：温度返回假值 45.5°C、thermals 为空、disk_busy 不可用（IoTime 不上报）——均为平台回退，正常。
 - Git Bash 的 grep 单引号模式有解析怪癖，批量文本处理用 node 脚本更稳；复杂替换优先用编辑工具而非多层转义的命令行脚本。
-- 单元测试没有建立，验证靠 go vet + 本地/板端冒烟（curl API + 检查字段）。
+- 单元测试已建立（history 环形缓冲/alert 状态机/server 缓存与限流/工具函数），提交前跑 go test ./...；板端验证用临时端口实跑 + curl 检查字段（用完清理，勿碰 8080）。
 
 ## 路线图（用户已知晓、未排期）
 
-告警渠道扩展（Telegram/Bark）；鉴权（Basic Auth 代码就绪或 Cloudflare Access，用户明确搁置）；CI 加 lint/test 步骤；gopsutil v3→v4；更多发版架构（linux/arm、windows/amd64）按需加矩阵即可。
+告警渠道扩展（Telegram/Bark）；鉴权（Basic Auth 代码就绪或 Cloudflare Access，用户明确搁置）；CI 加 lint 步骤（test 已接入 check job）；gopsutil v3→v4；多机聚合视图（RK3576 等第二块板）。
