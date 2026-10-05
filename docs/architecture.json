@@ -1,0 +1,332 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "monitor 系统监控服务架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1160,
+      500
+    ]
+  },
+  "components": [
+    {
+      "id": "probe",
+      "type": "backend",
+      "label": "外网探测",
+      "sublabel": "30s TCP 握手",
+      "pos": [
+        270,
+        50
+      ],
+      "size": [
+        150,
+        52
+      ]
+    },
+    {
+      "id": "alerter",
+      "type": "backend",
+      "label": "告警引擎",
+      "sublabel": "5 规则 · 滞回 · 冷却",
+      "pos": [
+        480,
+        50
+      ],
+      "size": [
+        150,
+        52
+      ]
+    },
+    {
+      "id": "serverchan",
+      "type": "external",
+      "label": "Server酱 → 微信",
+      "pos": [
+        940,
+        50
+      ],
+      "size": [
+        150,
+        52
+      ]
+    },
+    {
+      "id": "kernel",
+      "type": "external",
+      "label": "内核接口",
+      "sublabel": "/proc · /sys",
+      "pos": [
+        90,
+        170
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "collector",
+      "type": "backend",
+      "label": "采集器",
+      "sublabel": "快档 2s · 慢档 10s",
+      "pos": [
+        285,
+        170
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "state",
+      "type": "backend",
+      "label": "状态快照 + 环形缓冲",
+      "sublabel": "8640 点 ≈ 240KB",
+      "pos": [
+        500,
+        170
+      ],
+      "size": [
+        160,
+        60
+      ]
+    },
+    {
+      "id": "webapi",
+      "type": "backend",
+      "label": "HTTP API + 内嵌前端",
+      "sublabel": "并发 20 · gzip 缓存",
+      "pos": [
+        720,
+        170
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "浏览器 / PWA",
+      "sublabel": "2s 轮询 · 趋势图",
+      "pos": [
+        940,
+        170
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "systemd",
+      "type": "backend",
+      "label": "systemd",
+      "sublabel": "自启 · 崩溃拉起",
+      "pos": [
+        290,
+        290
+      ],
+      "size": [
+        140,
+        56
+      ]
+    },
+    {
+      "id": "persist",
+      "type": "database",
+      "label": "history.json",
+      "sublabel": "原子写 · 启动回载",
+      "pos": [
+        500,
+        290
+      ],
+      "size": [
+        160,
+        56
+      ]
+    },
+    {
+      "id": "github",
+      "type": "cloud",
+      "label": "GitHub Actions",
+      "sublabel": "云编译 · 双架构发版",
+      "pos": [
+        70,
+        410
+      ],
+      "size": [
+        150,
+        56
+      ]
+    },
+    {
+      "id": "cf",
+      "type": "cloud",
+      "label": "Cloudflare 隧道",
+      "sublabel": "Access 策略 · 公网入口",
+      "pos": [
+        340,
+        410
+      ],
+      "size": [
+        150,
+        56
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "开发板 · Linux（Go 单二进制，systemd 常驻）",
+      "wraps": [
+        "probe",
+        "alerter",
+        "kernel",
+        "collector",
+        "state",
+        "webapi",
+        "systemd",
+        "persist"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "from": "kernel",
+      "to": "collector",
+      "label": "读取指标",
+      "variant": "emphasis"
+    },
+    {
+      "from": "collector",
+      "to": "state",
+      "label": "写入快照",
+      "variant": "emphasis"
+    },
+    {
+      "from": "state",
+      "to": "webapi",
+      "label": "只读快照",
+      "variant": "emphasis"
+    },
+    {
+      "from": "webapi",
+      "to": "browser",
+      "label": "JSON · gzip",
+      "variant": "emphasis",
+      "labelAt": [
+        915,
+        145
+      ]
+    },
+    {
+      "from": "probe",
+      "to": "state",
+      "label": "在线状态",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        450,
+        150
+      ]
+    },
+    {
+      "from": "state",
+      "to": "alerter",
+      "label": "阈值判定",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        645,
+        135
+      ]
+    },
+    {
+      "from": "alerter",
+      "to": "serverchan",
+      "label": "HTTPS 推送"
+    },
+    {
+      "from": "state",
+      "to": "persist",
+      "label": "每分钟落盘",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        645,
+        260
+      ]
+    },
+    {
+      "from": "systemd",
+      "to": "collector",
+      "label": "守护进程",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        370,
+        260
+      ]
+    },
+    {
+      "from": "github",
+      "to": "cf",
+      "label": "Access + SSH 部署",
+      "variant": "emphasis",
+      "labelAt": [
+        280,
+        438
+      ]
+    },
+    {
+      "from": "cf",
+      "to": "systemd",
+      "label": "替换二进制 · 重启服务",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        585,
+        390
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "采集与状态",
+      "items": [
+        "快档 2s 负责实时感，慢档 10s 承担最贵的 TCP 表解析与磁盘 / 温度采集",
+        "API 只读互斥锁保护的快照，请求频率不影响采集节奏",
+        "24h 环形缓冲固定 8640 点，内存恒定 ≈240KB，不随运行时间增长"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "可靠性",
+      "items": [
+        "趋势每分钟原子落盘（临时文件 + rename），启动回载并丢弃超龄点",
+        "并发上限 20 + 响应缓存，超载立即 503 而非排队堆积",
+        "外网探测连续 2 次失败才判离线；告警带滞回与冷却，恢复即通知"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "交付与入口",
+      "items": [
+        "push main：云端交叉编译 → 隧道 SSH → 替换二进制并重启",
+        "push v*：多架构发版（linux arm64 / amd64），前端内嵌于二进制",
+        "公网访问经 Cloudflare 隧道；CI 部署经 Access Service Token 认证"
+      ]
+    }
+  ]
+}

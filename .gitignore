@@ -15,5 +15,11 @@ history.json.tmp
 *.swo
 .DS_Store
 
+# archify 视觉检查证据（可重新生成）
+# docs 下仅保留架构图源与成品，其余 archify 衍生文件忽略
+docs/*
+!docs/architecture.json
+!docs/architecture.html
+
 # AI 工具本地数据
 .zcode/
