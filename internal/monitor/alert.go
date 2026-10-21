@@ -158,7 +158,7 @@ func (a *Alerter) Check(stats SystemStats) {
 					relation = "跌破阈值"
 				}
 				go a.notify(
-					fmt.Sprintf("⚠️ %s%s告警", a.prefix(), r.name),
+					fmt.Sprintf("%s%s告警", a.prefix(), r.name),
 					fmt.Sprintf("**%s**: %.1f%s，%s %.0f%s\n\n> %s",
 						r.name, v, r.unit, relation, r.threshold, r.unit, now.Format("2006-01-02 15:04:05")))
 			}
@@ -168,7 +168,7 @@ func (a *Alerter) Check(stats SystemStats) {
 			if r.notified {
 				r.notified = false
 				go a.notify(
-					fmt.Sprintf("✅ %s%s已恢复", a.prefix(), r.name),
+					fmt.Sprintf("%s%s已恢复", a.prefix(), r.name),
 					fmt.Sprintf("**%s**: %.1f%s 已恢复正常（本次持续约 %s）", r.name, v, r.unit, episode))
 			}
 		}
@@ -189,12 +189,12 @@ func (a *Alerter) notify(title, desp string) {
 	api := fmt.Sprintf("https://sctapi.ftqq.com/%s.send", a.key)
 	resp, err := a.client.PostForm(api, url.Values{"title": {title}, "desp": {desp}})
 	if err != nil {
-		fmt.Printf("❌ Alert delivery failed: %v\n", err)
+		fmt.Printf("Alert delivery failed: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("❌ Alert delivery returned %s\n", resp.Status)
+		fmt.Printf("Alert delivery returned %s\n", resp.Status)
 	}
 }
 
@@ -205,7 +205,7 @@ func envFloat(name string, def float64) float64 {
 	}
 	f, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
-		fmt.Printf("⚠️ Ignoring invalid %s=%q\n", name, raw)
+		fmt.Printf("Ignoring invalid %s=%q\n", name, raw)
 		return def
 	}
 	return f

@@ -246,7 +246,7 @@ func (s *Server) Start(addr string) {
 	// web/static/... — no prefix stripping needed.
 	webRoot, err := fs.Sub(embeddedFS, "web")
 	if err != nil {
-		fmt.Printf("❌ Failed to open embedded frontend: %v\n", err)
+		fmt.Printf("Failed to open embedded frontend: %v\n", err)
 		return
 	}
 	fileServer := &nocacheFS{http.FileServer(http.FS(webRoot))}
@@ -306,15 +306,15 @@ func (s *Server) Start(addr string) {
 		}()
 	}
 
-	fmt.Printf("[%s] 🚀 Monitor server listening on %s\n", time.Now().Format("15:04:05"), addr)
+	fmt.Printf("[%s] Monitor server listening on %s\n", time.Now().Format("15:04:05"), addr)
 	if s.basicAuthUser == "" || s.basicAuthPass == "" {
-		fmt.Println("⚠️ MONITOR_BASIC_AUTH_USER/PASS not set — running without authentication")
+		fmt.Println("MONITOR_BASIC_AUTH_USER/PASS not set — running without authentication")
 	}
 	if s.corsAllowAll {
-		fmt.Println("⚠️ MONITOR_ALLOWED_ORIGINS not set — running with permissive CORS")
+		fmt.Println("MONITOR_ALLOWED_ORIGINS not set — running with permissive CORS")
 	}
 	if s.alerter.enabled {
-		fmt.Printf("🔔 Alerting enabled via ServerChan (cooldown %s)\n", s.alerter.cooldown)
+		fmt.Printf("Alerting enabled via ServerChan (cooldown %s)\n", s.alerter.cooldown)
 	}
 
 	srv := &http.Server{
@@ -340,7 +340,7 @@ func (s *Server) Start(addr string) {
 	}()
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		fmt.Printf("❌ Failed to start: %v\n", err)
+		fmt.Printf("Failed to start: %v\n", err)
 	}
 	<-done
 }

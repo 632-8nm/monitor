@@ -14,13 +14,13 @@ INSTALL_DIR="${INSTALL_DIR:-/opt/monitor}"
 ENV_FILE="/etc/default/monitor"
 
 echo "------------------------------------------------"
-echo "🚀 监控服务安装"
+echo "监控服务安装"
 echo "   安装目录: $INSTALL_DIR"
 echo "------------------------------------------------"
 
 # ===== 前置检查：当前目录必须有可执行包 =====
 if [ ! -f "$BINARY_NAME" ]; then
-    echo "❌ 当前目录未找到 $BINARY_NAME。"
+    echo "当前目录未找到 $BINARY_NAME。"
     echo "   源码用户:    先执行 ./build.sh（编译并安装一步到位）"
     echo "   Release 用户: 先从 GitHub Releases 下载压缩包并解压"
     exit 1
@@ -29,7 +29,7 @@ fi
 # 真实用户：处理 sudo 执行的场景，避免服务以 root 运行
 RUN_USER="${SUDO_USER:-$USER}"
 if [ -z "$RUN_USER" ] || [ "$RUN_USER" = "root" ]; then
-    echo "❌ 无法确定非 root 运行用户，请以普通用户身份执行本脚本（安装过程会按需调用 sudo）"
+    echo "无法确定非 root 运行用户，请以普通用户身份执行本脚本（安装过程会按需调用 sudo）"
     exit 1
 fi
 RUN_GROUP="$(id -gn "$RUN_USER")"
@@ -37,18 +37,18 @@ echo "   运行用户: $RUN_USER"
 
 # ===== 1. 停止旧服务（避免替换运行中的二进制触发 ETXTBSY） =====
 if systemctl list-unit-files "$SERVICE_NAME.service" 2>/dev/null | grep -q "$SERVICE_NAME"; then
-    echo "⏸️  停止旧服务（若在运行）..."
+    echo "停止旧服务（若在运行）..."
     sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 fi
 
 # ===== 2. 安装二进制到运行目录 =====
-echo "📁 正在安装二进制到 $INSTALL_DIR ..."
+echo "正在安装二进制到 $INSTALL_DIR ..."
 sudo mkdir -p "$INSTALL_DIR"
 sudo install -m 755 "$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
 sudo chown -R "$RUN_USER:$RUN_GROUP" "$INSTALL_DIR"
 
 # ===== 3. 写入 systemd 服务文件 =====
-echo "📝 正在生成系统服务配置..."
+echo "正在生成系统服务配置..."
 sudo tee "/etc/systemd/system/$SERVICE_NAME.service" >/dev/null <<EOT
 [Unit]
 Description=System Monitor Service
@@ -70,7 +70,7 @@ EOT
 
 # ===== 4. 生成默认环境变量文件（若不存在，不覆盖已有配置） =====
 if [ ! -f "$ENV_FILE" ]; then
-    echo "🔐 正在创建默认安全配置文件: $ENV_FILE"
+    echo "正在创建默认安全配置文件: $ENV_FILE"
     sudo tee "$ENV_FILE" >/dev/null <<EOT
 MONITOR_LISTEN_ADDR=127.0.0.1:8080
 # MONITOR_BASIC_AUTH_USER=admin
@@ -88,19 +88,19 @@ EOT
 fi
 
 # ===== 5. 启动服务 =====
-echo "⚙️  正在启动服务并设置开机自启..."
+echo "正在启动服务并设置开机自启..."
 sudo systemctl daemon-reload
 sudo systemctl enable "$SERVICE_NAME"
 sudo systemctl restart "$SERVICE_NAME"
 
 if systemctl is-active --quiet "$SERVICE_NAME"; then
     echo "------------------------------------------------"
-    echo "🎉 安装完成！服务 '$SERVICE_NAME' 已就绪。"
+    echo "安装完成！服务 '$SERVICE_NAME' 已就绪。"
     echo "   本机访问: http://127.0.0.1:8080"
     echo "   查看日志: journalctl -u $SERVICE_NAME -f"
     echo "   卸载:     ./uninstall.sh"
     echo "------------------------------------------------"
 else
-    echo "❌ 服务未能正常运行，查看日志排查: journalctl -u $SERVICE_NAME -n 50"
+    echo "服务未能正常运行，查看日志排查: journalctl -u $SERVICE_NAME -n 50"
     exit 1
 fi
