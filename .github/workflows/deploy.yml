@@ -31,6 +31,12 @@ jobs:
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         run: go test ./...
 
+      - name: Check frontend JS syntax
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          node --check internal/monitor/web/static/js/app.js
+          node --check internal/monitor/web/sw.js
+
   build:
     name: Build arm64 binary
     runs-on: ubuntu-latest
@@ -87,7 +93,7 @@ jobs:
           # Environment-specific values (tunnel hostname, board user) come
           # from Secrets — nothing identifying the board lives in this file.
           if [ -z "$TUNNEL_HOST" ] || [ -z "$BOARD_USER" ]; then
-            echo "❌ Secrets SSH_TUNNEL_HOST and BOARD_SSH_USER must be set"
+            echo "Secrets SSH_TUNNEL_HOST and BOARD_SSH_USER must be set"
             exit 1
           fi
           CF_ID="${CLOUDFLARED_TOKEN%%:*}"
@@ -200,7 +206,7 @@ jobs:
             sleep 5
           done
           if [ "$start_ok" != "1" ]; then
-            echo "❌ Could not start the service — check the board: systemctl status monitor / journalctl -u monitor -n 50"
+            echo "Could not start the service — check the board: systemctl status monitor / journalctl -u monitor -n 50"
             exit 1
           fi
         env:

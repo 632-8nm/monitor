@@ -8,7 +8,7 @@
 	<link rel="manifest" href="/manifest.json">
 	<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
 	<title>系统监控</title>
-	<link rel="stylesheet" href="static/css/style.css?v=12">
+	<link rel="stylesheet" href="static/css/style.css?v=13">
 </head>
 
 <body>
@@ -56,11 +56,13 @@
 			</div>
 			<div class="info-row" style="margin-top:0.8rem;margin-bottom:0;"><span>可用</span> <span id="mem-avail">--</span></div>
 			<div class="info-row" style="margin-top:0.4rem;"><span>缓存</span> <span id="mem-cached">--</span></div>
-			<div class="info-row" style="margin-top:0.8rem;"><span>交换内存</span> <span id="swap-usage">0%</span></div>
-			<div class="progress-container" style="margin-top:0.4rem;">
-				<div id="swap-bar" class="progress-bar"></div>
+			<div id="swap-block">
+				<div class="info-row" style="margin-top:0.8rem;"><span>交换内存</span> <span id="swap-usage">0%</span></div>
+				<div class="progress-container" style="margin-top:0.4rem;">
+					<div id="swap-bar" class="progress-bar"></div>
+				</div>
+				<p id="swap-summary" class="card-subtitle" style="text-align:right;margin-top:6px;">0 / 0 GB</p>
 			</div>
-			<p id="swap-summary" class="card-subtitle" style="text-align:right;margin-top:6px;">0 / 0 GB</p>
 		</div>
 
 		<div class="card">
@@ -142,7 +144,7 @@
 		<span class="status-dot"></span> 数据实时更新（24h 趋势每分钟落盘，重启不丢失）
 	</div>
 
-<script src="static/js/app.js?v=24"></script>
+<script src="static/js/app.js?v=25"></script>
 </body>
 
 </html>

@@ -45,6 +45,23 @@ func TestHistoryIntervalThrottle(t *testing.T) {
 	}
 }
 
+func TestHistoryRecordsHottestThermalZone(t *testing.T) {
+	h := newHistory()
+	h.maybeAppend(SystemStats{
+		CPUUsage: 5,
+		CPUTemp:  "40.0°C",
+		Thermals: []ThermalZone{
+			{Type: "soc-thermal", Temp: 42.5},
+			{Type: "npu-thermal", Temp: 47.5},
+		},
+	}, time.Now())
+
+	snap := h.snapshot()
+	if len(snap.Temp) != 1 || snap.Temp[0] != 47.5 {
+		t.Fatalf("history temp = %v, want 47.5 (hottest zone, not zone0)", snap.Temp)
+	}
+}
+
 func TestHistorySaveLoadRoundTrip(t *testing.T) {
 	h := newHistory()
 	appendN(t, h, 100, 10)

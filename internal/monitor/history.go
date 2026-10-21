@@ -50,7 +50,7 @@ func (h *history) maybeAppend(stats SystemStats, now time.Time) {
 	h.points[h.head] = historyPoint{
 		T:       now.Unix(),
 		CPU:     round1(stats.CPUUsage),
-		Temp:    round1(parseTemp(stats.CPUTemp)),
+		Temp:    round1(maxThermal(stats)),
 		Mem:     round1(stats.MemUsage),
 		NetDown: round1(stats.NetDown),
 		NetUp:   round1(stats.NetUp),

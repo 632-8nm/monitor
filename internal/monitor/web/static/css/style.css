@@ -199,6 +199,11 @@ header h1 {
 	vertical-align: middle;
 }
 
+.status-dot.offline {
+	background: var(--danger);
+	box-shadow: 0 0 8px var(--danger);
+}
+
 /* ===== 趋势图 ===== */
 .trend-card {
 	grid-column: 1 / -1;
@@ -301,9 +306,10 @@ header h1 {
 	margin-top: 3px;
 }
 
-/* ===== 处理器卡片头部（占用率与温度同行） ===== */
+/* ===== 处理器卡片头部（占用率与温度优先同行，放不下时换行） ===== */
 .cpu-head {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: baseline;
 	justify-content: space-between;
 	gap: 0.5rem;
@@ -313,7 +319,8 @@ header h1 {
 	font-size: 1.3rem;
 	font-weight: 800;
 	text-align: right;
-	white-space: nowrap;
+	white-space: normal;
+	margin-left: auto;
 }
 
 .temp-sep {

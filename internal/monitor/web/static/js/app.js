@@ -14,18 +14,20 @@
 			return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
 		},
 
-		// 温度徽章：与总占用同行右侧展示。单热区只显示数值（处理器卡内
-		// 无需再写“温度”），多热区（如 CPU + NPU）才带标签，用 · 分隔
+		// 温度徽章：优先与总占用同行右侧展示，放不下时自动换行。单热区
+		// 只显示数值（处理器卡内无需再写“温度”），多热区才带标签，用 · 分隔
 		renderTempBadge(data) {
 			const el = document.getElementById('cpu-temp');
+			const fallback = parseFloat(data.cpu_temp);
 			const zones = (data.thermals && data.thermals.length)
 				? data.thermals
-				: [{ type: 'cpu', temp: parseFloat(data.cpu_temp) || 0 }];
+				: (Number.isFinite(fallback) ? [{ type: 'cpu', temp: fallback }] : []);
+			if (!zones.length) { el.innerText = '--'; return; }
 			el.innerHTML = zones.map(z => {
 				const label = z.type.replace(/-thermal$/i, '').toUpperCase();
 				const hot = z.temp > 60;
 				const color = hot ? '#ef4444' : 'var(--text-main)';
-				return `<span style="color:${color}">${zones.length > 1 ? label + ' ' : ''}${z.temp.toFixed(1)}°C</span>`;
+				return `<span style="color:${color}">${zones.length > 1 ? label + '\u00A0' : ''}${z.temp.toFixed(1)}°C</span>`;
 			}).join('<span class="temp-sep"> · </span>');
 		},
 
@@ -84,6 +86,8 @@
 			document.getElementById('swap-usage').innerText = (data.swap_usage || 0).toFixed(1) + '%';
 			document.getElementById('swap-bar').style.width = (data.swap_usage || 0) + '%';
 			document.getElementById('swap-summary').innerText = data.swap_summary || '0 / 0 GB';
+			const swapBlock = document.getElementById('swap-block');
+			if (swapBlock) swapBlock.style.display = (data.swap_total || 0) > 0 ? '' : 'none';
 
 			// 网络（速率 + 累计 + 连接细分 + 丢包 + 外网连通）
 			document.getElementById('net-down').innerText = data.net_down.toFixed(1);
@@ -142,9 +146,12 @@
 				}).join('') || '<p class="card-subtitle">--</p>';
 			}
 
-			// 页头：运行时间 + 状态 + 最后更新
+			// 页头：运行时间 + 外网状态 + 最后更新
+			const netState = data.net_online ? '外网正常' : '外网离线';
 			document.getElementById('local-time').innerText =
-				`已运行 ${this.formatUptime(data.uptime || 0)} | 系统状态正常 | 最后更新: ${new Date().toLocaleTimeString()}`;
+				`已运行 ${this.formatUptime(data.uptime || 0)} | ${netState} | 最后更新: ${new Date().toLocaleTimeString()}`;
+			const dot = document.querySelector('.status-dot');
+			if (dot) dot.classList.remove('offline');
 		}
 	};
 
@@ -184,7 +191,7 @@
 			const ctx = canvas.getContext('2d');
 			const dpr = window.devicePixelRatio || 1;
 			const cssW = canvas.clientWidth || 600;
-			const cssH = 220;
+			const cssH = canvas.clientHeight || 220;
 			canvas.width = cssW * dpr;
 			canvas.height = cssH * dpr;
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -278,7 +285,11 @@
 				activate(btn, rangeBtns);
 				this.render();
 			}));
-			window.addEventListener('resize', () => this.render());
+			let resizeTimer;
+			window.addEventListener('resize', () => {
+				clearTimeout(resizeTimer);
+				resizeTimer = setTimeout(() => this.render(), 120);
+			});
 		}
 	};
 
@@ -303,6 +314,8 @@
 			failCount++;
 			delay = Math.min(delay * 2, 30000);
 			document.getElementById('local-time').innerText = `连接后端失败 (重试次数: ${failCount})...`;
+			const dot = document.querySelector('.status-dot');
+			if (dot) dot.classList.add('offline');
 			console.error("Failed to fetch stats:", error);
 		}
 		scheduleNext();

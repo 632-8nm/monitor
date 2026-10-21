@@ -45,6 +45,7 @@ type SystemStats struct {
 	MemUsage     float64       `json:"mem_usage"`
 	MemSummary   string        `json:"mem_summary"`
 	SwapUsage    float64       `json:"swap_usage"`
+	SwapTotal    uint64        `json:"swap_total"`
 	SwapSummary  string        `json:"swap_summary"`
 	DiskUsage    float64       `json:"disk_usage"` // root mount, used by alerting
 	DiskSummary  string        `json:"disk_summary"`
@@ -430,6 +431,7 @@ func (c *Collector) collectFast() {
 	s.MemAvailable = v.Available
 	s.MemCached = v.Cached
 	s.SwapUsage = swap.UsedPercent
+	s.SwapTotal = swap.Total
 	s.SwapSummary = fmt.Sprintf("%.2f / %.2f GB", float64(swap.Used)/1e9, float64(swap.Total)/1e9)
 	s.NetDown = downSpeed
 	s.NetUp = upSpeed
