@@ -2,7 +2,7 @@
 
 轻量级系统监控服务，仅面向 Linux（arm64/amd64，最初为 Orange Pi Zero3 开发），通过 GitHub Actions 实现云端自动编译与持续部署。
 
-**🌐 在线演示：** [https://monitor.632-8nm.cloud/](https://monitor.632-8nm.cloud/)
+**🌐 在线演示：** [https://monitor.632-8nm.cloud/](https://orangepi-monitor.632-8nm.cloud/)
 
 > 📦 **部署架构与从零搭建流程见 [DEPLOYMENT.md](DEPLOYMENT.md)**（CI/CD、Cloudflare 隧道、/opt 部署、密钥配置）
 
